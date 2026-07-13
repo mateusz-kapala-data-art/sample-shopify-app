@@ -9,17 +9,17 @@ embedded = true
 automatically_update_urls_on_dev = true
 include_config_on_deploy = true
 
-# webhook subscriptions declared in plan 01-02
+# [SLIDE D1] all webhook topics -> /webhooks (HOOK-01..06). Single URI: React
+# Router cannot route two files to one URI, so every topic + compliance topic
+# is declared under this one subscription and fanned out by topic in the
+# consolidated app/routes/webhooks.tsx route + app/jobs/processWebhooks.ts worker.
 [webhooks]
 api_version = "2026-07"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
-  topics = [ "app/uninstalled" ]
+  uri = "/webhooks"
+  topics = [ "app/uninstalled", "shop/update", "app/scopes_update" ]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 # [SLIDE D1] access scopes — read_themes required; write_shipping/write_themes optional (Phase 3 MOD-01)
 [access_scopes]
