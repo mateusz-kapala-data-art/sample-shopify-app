@@ -2,8 +2,13 @@
 // (SEC-02), redacted logging (SEC-03), and a degraded flag that pauses jobs when
 // credentials go bad (SEC-04). Background jobs that need Admin API access call
 // getAdminToken(shop) instead of relying on a stored OAuth session token.
+import { ApiVersion } from "@shopify/shopify-app-react-router/server";
 import { getPrimarySecret } from "./webhookSecrets.server";
-import { apiVersion } from "../shopify.server";
+
+// Pinned 2026-07 Admin API surface (matches app/shopify.server.ts). Imported from
+// the SDK directly rather than from shopify.server to avoid a circular import
+// (registrySync -> tokenService -> shopify.server -> registrySync).
+export const adminApiVersion = ApiVersion.July26;
 
 // SEC-03: every log line about a token passes through redact() so a raw token
 // never lands in application logs. Shows a short non-reversible fingerprint only.
@@ -97,7 +102,7 @@ export async function getAdminToken(shop: string): Promise<string> {
   // Version pin is threaded through so callers using this token hit the same
   // 2026-07 Admin API surface as the rest of the app (see shopify.server.ts).
   console.log(
-    `[tokenService] minted token for ${shop} -> ${redact(token)}, ttl ${ttlS}s (api ${apiVersion})`,
+    `[tokenService] minted token for ${shop} -> ${redact(token)}, ttl ${ttlS}s (api ${adminApiVersion})`,
   );
   return token;
 }
