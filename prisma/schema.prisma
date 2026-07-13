@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+// NOTE (DATA-03): SQLite is used deliberately to keep this demo self-contained and
+// dependency-free on stage. For production, swap the datasource provider to
+// "postgresql" and point `url` at a real Postgres connection string — the
+// schema itself (models below) does not need to change.
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// [SLIDE Registry Map] Store — one row per installed shop, self-registered via
+// hooks.afterAuth (REG-01/REG-02). See app/lib/registrySync.server.ts.
+model Store {
+  id                 String    @id @default(cuid())
+  shopifyDomain      String    @unique
+  primaryDomain      String?
+  status             String    @default("active")
+  plan               String?
+  contactEmail       String?
+  themeName          String?
+  themeVersion       String?
+  grantedScopes      String?
+  shippingModule     Boolean   @default(false)
+  dataConnected      Boolean   @default(false)
+  fansifterConnected Boolean   @default(false)
+  installedAt        DateTime  @default(now())
+  uninstalledAt      DateTime?
+  lastSyncedAt       DateTime?
+}
+
+// WebhookEvent — durable queue table (DATA-02); dedupe key is Shopify's own
+// webhookId, not a generated cuid, so at-least-once deliveries are idempotent.
+model WebhookEvent {
+  id          String    @id // Shopify's webhookId — dedupe key, not a generated cuid
+  topic       String
+  shop        String
+  payload     String    // JSON.stringify'd payload; SQLite has no native JSON column
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+}
