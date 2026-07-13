@@ -12,6 +12,14 @@ declare global {
   var webhookWorkerStarted: boolean | undefined;
 }
 
+// WR-01: retry transient failures instead of silently dropping them. In-memory
+// attempt counter (keyed by webhookId) — no schema column needed for the walking
+// skeleton; resets on restart. A poison-pill payload (malformed JSON etc.) is still
+// eventually skipped after MAX_ATTEMPTS so it never blocks the queue (the original
+// DoS-skip intent), but a real DB/network blip now retries on the next tick.
+const MAX_ATTEMPTS = 3;
+const attempts = new Map<string, number>();
+
 async function drainQueue() {
   const pending = await db.webhookEvent.findMany({
     where: { processedAt: null },
@@ -69,11 +77,27 @@ async function drainQueue() {
           break;
       }
     } catch (err) {
-      // V5/V13 — DoS mitigation: one malformed/oversized payload logs and is
-      // skipped rather than halting the whole drain loop.
-      console.error(`[processWebhooks] failed to apply event ${event.id} (${event.topic})`, err);
+      const tries = (attempts.get(event.id) ?? 0) + 1;
+      attempts.set(event.id, tries);
+      if (tries < MAX_ATTEMPTS) {
+        // Transient failure — leave processedAt null so the next tick retries.
+        // Also keeps one malformed/oversized payload from halting the drain loop
+        // (V5/V13 DoS mitigation): the loop continues to the next event.
+        console.error(
+          `[processWebhooks] apply failed for event ${event.id} (${event.topic}), attempt ${tries}/${MAX_ATTEMPTS} — will retry`,
+          err,
+        );
+        continue;
+      }
+      // Exhausted retries — treat as a poison pill: mark processed so it stops
+      // blocking the queue, and log loudly since a real change may have been lost.
+      console.error(
+        `[processWebhooks] giving up on event ${event.id} (${event.topic}) after ${tries} attempts — marking processed to drain the queue`,
+        err,
+      );
     }
 
+    attempts.delete(event.id);
     await db.webhookEvent.update({
       where: { id: event.id },
       data: { processedAt: new Date() },
