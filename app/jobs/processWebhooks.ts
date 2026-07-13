@@ -4,6 +4,7 @@
 // from "apply slow" (this worker's DB/GraphQL-adjacent work).
 import db from "../db.server";
 import { handleComplianceEvent } from "../lib/compliance.server";
+import { isDegraded, evictAdminToken } from "../lib/tokenService.server";
 
 // globalThis-guarded singleton — same idiom as app/db.server.ts's Prisma
 // client guard — so Vite dev-server HMR never spawns a second interval.
@@ -21,6 +22,15 @@ const MAX_ATTEMPTS = 3;
 const attempts = new Map<string, number>();
 
 async function drainQueue() {
+  // SEC-04: pause job processing while the token service is degraded (an
+  // invalid_client grant tripped the flag). Events stay queued (processedAt null)
+  // and drain once credentials are fixed and the flag clears. Logged loudly so the
+  // pause is visible in job logs, per ROADMAP Phase 2 SC4.
+  if (isDegraded()) {
+    console.warn("[processWebhooks] DEGRADED — job processing paused; leaving events queued until credentials recover");
+    return;
+  }
+
   const pending = await db.webhookEvent.findMany({
     where: { processedAt: null },
     orderBy: { receivedAt: "asc" },
@@ -37,10 +47,11 @@ async function drainQueue() {
             where: { shopifyDomain: event.shop },
             data: { uninstalledAt: new Date(), status: "uninstalled" },
           });
-          // Wipe the shop's stored access-token/session rows (HOOK-05).
-          // [Phase 2] in-memory admin-token cache eviction is added alongside
-          // getAdminToken(shop) — no such cache exists yet in Phase 1.
+          // Wipe the shop's stored access-token/session rows (HOOK-05) and evict
+          // any cached admin token (SEC-02) so a stale token is never reused after
+          // uninstall.
           await db.session.deleteMany({ where: { shop: event.shop } });
+          evictAdminToken(event.shop);
           break;
         }
         case "SHOP_UPDATE": {
