@@ -15,6 +15,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { isDegraded } from "../lib/tokenService.server";
 import { resyncStore } from "../lib/registrySync.server";
+import { ensureScope } from "../lib/scopesClient";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -129,26 +130,10 @@ export default function StoreDetail() {
 
   const enableShippingModule = async () => {
     setModuleDeclined(false);
-    const scopesApi = (shopify as unknown as {
-      scopes: {
-        query: () => Promise<{ granted: string[] }>;
-        request: (s: string[]) => Promise<{ result: string }>;
-      };
-    }).scopes;
-    const { granted } = await scopesApi.query();
-    if (granted.includes("write_shipping")) {
+    const { granted, grantedScopes } = await ensureScope(shopify, "write_shipping");
+    if (granted) {
       moduleFetcher.submit(
-        { intent: "enable-module", granted: granted.join(",") },
-        { method: "post" },
-      );
-      shopify.toast.show("Shipping module enabled");
-      return;
-    }
-    const res = await scopesApi.request(["write_shipping"]);
-    if (res.result === "granted-all") {
-      const after = await scopesApi.query();
-      moduleFetcher.submit(
-        { intent: "enable-module", granted: after.granted.join(",") },
+        { intent: "enable-module", granted: grantedScopes.join(",") },
         { method: "post" },
       );
       shopify.toast.show("Shipping module enabled");

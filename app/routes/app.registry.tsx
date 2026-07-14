@@ -19,6 +19,7 @@ import {
   clearDegraded,
 } from "../lib/tokenService.server";
 import { resyncStore } from "../lib/registrySync.server";
+import { ensureScope } from "../lib/scopesClient";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -243,33 +244,13 @@ export default function Registry() {
   const moduleFetcher = useFetcher<typeof action>();
   const [moduleDeclined, setModuleDeclined] = useState(false);
 
-  // MOD-01/02: request write_shipping at runtime via the App Bridge Scopes API.
+  // MOD-01/02: request write_shipping at runtime via the shared ensureScope helper.
   const enableShippingModule = async () => {
     setModuleDeclined(false);
-    // App Bridge scopes API is not in the shared type surface here — access dynamically.
-    const scopesApi = (shopify as unknown as {
-      scopes: {
-        query: () => Promise<{ granted: string[] }>;
-        request: (s: string[]) => Promise<{ result: string; detail?: { granted?: string[] } }>;
-      };
-    }).scopes;
-
-    const { granted } = await scopesApi.query();
-    if (granted.includes("write_shipping")) {
-      // Already granted — just record it.
+    const { granted, grantedScopes } = await ensureScope(shopify, "write_shipping");
+    if (granted) {
       moduleFetcher.submit(
-        { intent: "enable-module", granted: granted.join(",") },
-        { method: "post" },
-      );
-      shopify.toast.show("Shipping module enabled");
-      return;
-    }
-
-    const res = await scopesApi.request(["write_shipping"]);
-    if (res.result === "granted-all") {
-      const after = await scopesApi.query();
-      moduleFetcher.submit(
-        { intent: "enable-module", granted: after.granted.join(",") },
+        { intent: "enable-module", granted: grantedScopes.join(",") },
         { method: "post" },
       );
       shopify.toast.show("Shipping module enabled");
