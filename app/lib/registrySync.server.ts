@@ -61,7 +61,7 @@ async function upsertStoreRow(
   });
 }
 
-// [SLIDE Registry Map] syncStoreRegistry — self-registration + initial sync (REG-01,
+// [DEMO 1] [SLIDE Registry Map] syncStoreRegistry — self-registration + initial sync (REG-01,
 // REG-02). Called from hooks.afterAuth on every OAuth completion (install, reinstall,
 // or revisit) — see RESEARCH Pattern 1 / Pitfall 5.
 export async function syncStoreRegistry(

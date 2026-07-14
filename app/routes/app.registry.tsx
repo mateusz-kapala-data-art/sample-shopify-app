@@ -1,4 +1,4 @@
-// [SLIDE D3] Registry page — the operator's live view of every registered store
+// [DEMO 5] [SLIDE D3] Registry page — the operator's live view of every registered store
 // (UI-01), on-demand re-sync via the client-credentials token service (UI-02), a
 // degraded-mode banner driven by the Phase 2 SEC-04 flag (UI-03), and a runtime
 // write_shipping optional-scope request for the shipping module (MOD-01/02).

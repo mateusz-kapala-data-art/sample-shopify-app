@@ -1,4 +1,4 @@
-// [SLIDE D1] Single hardened webhook endpoint — all topics + compliance_topics
+// [DEMO 2] [SLIDE D1] Single hardened webhook endpoint — all topics + compliance_topics
 // route here (HOOK-01..06). HMAC-verify -> idempotent insert -> return 200
 // immediately. Application of the event to the registry is deferred to the
 // interval worker (app/jobs/processWebhooks.ts) so this action stays fast.

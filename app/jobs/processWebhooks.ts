@@ -1,4 +1,4 @@
-// [SLIDE D1] Interval worker — drains WebhookEvent (queued by
+// [DEMO 2] [SLIDE D1] Interval worker — drains WebhookEvent (queued by
 // app/routes/webhooks.tsx) and applies each event to the registry
 // (HOOK-03..06). Decouples "acknowledge fast" (the route's immediate 200)
 // from "apply slow" (this worker's DB/GraphQL-adjacent work).

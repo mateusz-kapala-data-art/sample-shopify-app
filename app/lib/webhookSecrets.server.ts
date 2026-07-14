@@ -1,4 +1,4 @@
-// [SLIDE D2] Multi-secret webhook verification (SEC-01). Rotation is a config
+// [DEMO 3] [SLIDE D2] Multi-secret webhook verification (SEC-01). Rotation is a config
 // change, not a code change: SHOPIFY_CLIENT_SECRETS holds a comma-separated list
 // of app secrets. Minting/signing uses index 0 (the current primary); incoming
 // webhook HMACs are verified against EVERY entry so a webhook signed with an

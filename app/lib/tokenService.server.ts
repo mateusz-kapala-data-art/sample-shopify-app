@@ -1,4 +1,4 @@
-// [SLIDE D2] Admin token service — client-credentials grant + in-memory cache
+// [DEMO 4] [SLIDE D2] Admin token service — client-credentials grant + in-memory cache
 // (SEC-02), redacted logging (SEC-03), and a degraded flag that pauses jobs when
 // credentials go bad (SEC-04). Background jobs that need Admin API access call
 // getAdminToken(shop) instead of relying on a stored OAuth session token.
