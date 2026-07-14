@@ -131,9 +131,55 @@ function ResyncButton({ shop }: { shop: string }) {
       <input type="hidden" name="intent" value="resync" />
       <input type="hidden" name="shop" value={shop} />
       <s-button type="submit" variant="secondary" {...(busy ? { loading: true } : {})}>
-        Run re-sync now
+        Re-sync
       </s-button>
     </fetcher.Form>
+  );
+}
+
+// Compact granted-scopes summary: highlight the optional module scopes, count the rest.
+// The full list lives on the per-store detail page — the table stays scannable.
+function ScopeSummary({ scopes }: { scopes: string[] }) {
+  if (scopes.length === 0) return <s-text color="subdued">—</s-text>;
+  const optional = scopes.filter(
+    (s) => s === "write_shipping" || s === "write_themes",
+  );
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
+      {optional.map((s) => (
+        <s-badge key={s} tone="success">
+          {s}
+        </s-badge>
+      ))}
+      <s-text color="subdued">{scopes.length} total</s-text>
+    </div>
+  );
+}
+
+// Show only the modules that are ON — a registry reads at a glance for what's active.
+function ModuleChips({
+  shipping,
+  data,
+  fansifter,
+}: {
+  shipping: boolean;
+  data: boolean;
+  fansifter: boolean;
+}) {
+  const on = [
+    shipping ? "Shipping" : null,
+    data ? "Data" : null,
+    fansifter ? "Fansifter" : null,
+  ].filter((m): m is string => m !== null);
+  if (on.length === 0) return <s-text color="subdued">—</s-text>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+      {on.map((m) => (
+        <s-badge key={m} tone="success">
+          {m}
+        </s-badge>
+      ))}
+    </div>
   );
 }
 
@@ -156,8 +202,13 @@ function ConnectorButton({
       <input type="hidden" name="intent" value="toggle-connector" />
       <input type="hidden" name="shop" value={shop} />
       <input type="hidden" name="connector" value={connector} />
-      <s-button type="submit" variant="tertiary" {...(busy ? { loading: true } : {})}>
-        {on ? `Disconnect ${label}` : `Connect ${label}`}
+      <s-button
+        type="submit"
+        variant="tertiary"
+        tone={on ? "critical" : "auto"}
+        {...(busy ? { loading: true } : {})}
+      >
+        {on ? `${label} off` : `${label} on`}
       </s-button>
     </fetcher.Form>
   );
@@ -363,60 +414,32 @@ export default function Registry() {
                       )}
                     </s-table-cell>
                     <s-table-cell>
-                      {scopes.length === 0 ? (
-                        <s-text color="subdued">—</s-text>
-                      ) : (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "4px",
-                            maxWidth: "260px",
-                          }}
-                        >
-                          {scopes.map((sc) => (
-                            <s-badge
-                              key={sc}
-                              tone={sc === "write_shipping" ? "success" : "neutral"}
-                            >
-                              {sc}
-                            </s-badge>
-                          ))}
-                        </div>
-                      )}
+                      <ScopeSummary scopes={scopes} />
                     </s-table-cell>
                     <s-table-cell>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                        <s-badge tone={s.shippingModule ? "success" : "neutral"}>
-                          Shipping
-                        </s-badge>
-                        <s-badge tone={s.dataConnected ? "success" : "neutral"}>
-                          Data
-                        </s-badge>
-                        <s-badge tone={s.fansifterConnected ? "success" : "neutral"}>
-                          Fansifter
-                        </s-badge>
-                      </div>
+                      <ModuleChips
+                        shipping={s.shippingModule}
+                        data={s.dataConnected}
+                        fansifter={s.fansifterConnected}
+                      />
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">{formatSynced(s.lastSyncedAt)}</s-text>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-stack direction="block" gap="base">
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                         <ResyncButton shop={s.shopifyDomain} />
-                        <s-stack direction="inline" gap="base">
-                          <ConnectorButton
-                            shop={s.shopifyDomain}
-                            connector="data"
-                            on={s.dataConnected}
-                          />
-                          <ConnectorButton
-                            shop={s.shopifyDomain}
-                            connector="fansifter"
-                            on={s.fansifterConnected}
-                          />
-                        </s-stack>
-                      </s-stack>
+                        <ConnectorButton
+                          shop={s.shopifyDomain}
+                          connector="data"
+                          on={s.dataConnected}
+                        />
+                        <ConnectorButton
+                          shop={s.shopifyDomain}
+                          connector="fansifter"
+                          on={s.fansifterConnected}
+                        />
+                      </div>
                     </s-table-cell>
                   </s-table-row>
                 );
