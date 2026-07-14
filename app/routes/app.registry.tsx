@@ -335,7 +335,9 @@ export default function Registry() {
                     <s-table-cell>
                       <s-stack direction="block" gap="none">
                         <s-stack direction="inline" gap="base" alignItems="center">
-                          <s-text type="strong">{s.shopifyDomain}</s-text>
+                          <s-link href={`/app/registry/${encodeURIComponent(s.shopifyDomain)}`}>
+                            {s.shopifyDomain}
+                          </s-link>
                           {isCurrent && <s-badge tone="info">You</s-badge>}
                         </s-stack>
                         {s.primaryDomain &&
