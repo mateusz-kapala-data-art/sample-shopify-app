@@ -84,6 +84,21 @@ async function drainQueue() {
         case "SHOP_REDACT":
           await handleComplianceEvent(event.topic, event.shop, event.payload);
           break;
+        case "BULK_OPERATIONS_FINISH": {
+          // SHOW-06: payload carries admin_graphql_api_id/status/completed_at — DO NOT
+          // use currentBulkOperation (deprecated 2026-01+, this app is 2026-07). No
+          // Store mutation needed: this WebhookEvent row IS the durable completion
+          // record the console card reads (RESEARCH Pattern 2 / Don't Hand-Roll — no
+          // new schema, no parallel polling job).
+          const payload = JSON.parse(event.payload);
+          console.log(
+            "[processWebhooks] bulk export finished for",
+            event.shop,
+            payload.admin_graphql_api_id,
+            payload.status,
+          );
+          break;
+        }
         default:
           break;
       }
