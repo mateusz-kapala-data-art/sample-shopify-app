@@ -13,7 +13,11 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { isDegraded } from "../lib/tokenService.server";
+import {
+  isDegraded,
+  setSimulatedDegraded,
+  clearDegraded,
+} from "../lib/tokenService.server";
 import { resyncStore } from "../lib/registrySync.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -31,6 +35,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       themeVersion: s.themeVersion,
       grantedScopes: s.grantedScopes,
       shippingModule: s.shippingModule,
+      dataConnected: s.dataConnected,
+      fansifterConnected: s.fansifterConnected,
       lastSyncedAt: s.lastSyncedAt ? s.lastSyncedAt.toISOString() : null,
     })),
   };
@@ -61,6 +67,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       where: { shopifyDomain: session.shop },
       data: { shippingModule: true, grantedScopes: granted },
     });
+    return { ok: true, intent };
+  }
+
+  if (intent === "toggle-connector") {
+    // [SLIDE G1] Data / Fansifter are OUR platform modules, not Shopify scopes — no
+    // permission prompt, just a registry flag flip. Safe to toggle live on stage.
+    const shop = String(form.get("shop"));
+    const connector = String(form.get("connector")); // "data" | "fansifter"
+    const store = await db.store.findUnique({ where: { shopifyDomain: shop } });
+    if (!store) return { ok: false, intent, error: "Store not found" };
+    const field = connector === "fansifter" ? "fansifterConnected" : "dataConnected";
+    await db.store.update({
+      where: { shopifyDomain: shop },
+      data: { [field]: !store[field] },
+    });
+    return { ok: true, intent, shop, connector };
+  }
+
+  if (intent === "simulate-degraded") {
+    // [SLIDE C4] Breach branch — force degraded mode for the demo (spec 5d/§7).
+    setSimulatedDegraded(true);
+    return { ok: true, intent };
+  }
+
+  if (intent === "recover-degraded") {
+    clearDegraded();
     return { ok: true, intent };
   }
 
@@ -100,6 +132,55 @@ function ResyncButton({ shop }: { shop: string }) {
       <input type="hidden" name="shop" value={shop} />
       <s-button type="submit" variant="secondary" {...(busy ? { loading: true } : {})}>
         Run re-sync now
+      </s-button>
+    </fetcher.Form>
+  );
+}
+
+// Toggle one of OUR platform modules (Data / Fansifter) — a registry flag, not a
+// Shopify scope, so no permission prompt. Safe to click live on stage (spec §4/G1).
+function ConnectorButton({
+  shop,
+  connector,
+  on,
+}: {
+  shop: string;
+  connector: "data" | "fansifter";
+  on: boolean;
+}) {
+  const fetcher = useFetcher<typeof action>();
+  const busy = fetcher.state !== "idle";
+  const label = connector === "data" ? "Data" : "Fansifter";
+  return (
+    <fetcher.Form method="post">
+      <input type="hidden" name="intent" value="toggle-connector" />
+      <input type="hidden" name="shop" value={shop} />
+      <input type="hidden" name="connector" value={connector} />
+      <s-button type="submit" variant="tertiary" {...(busy ? { loading: true } : {})}>
+        {on ? `Disconnect ${label}` : `Connect ${label}`}
+      </s-button>
+    </fetcher.Form>
+  );
+}
+
+// [SLIDE C4] Rehearsal control — force/recover degraded mode without a real bad
+// credential (spec §5d/§7). Lets the presenter show the red banner + paused jobs.
+function DegradedControl({ degraded }: { degraded: boolean }) {
+  const fetcher = useFetcher<typeof action>();
+  const busy = fetcher.state !== "idle";
+  return (
+    <fetcher.Form method="post">
+      <input
+        type="hidden"
+        name="intent"
+        value={degraded ? "recover-degraded" : "simulate-degraded"}
+      />
+      <s-button
+        type="submit"
+        variant={degraded ? "primary" : "secondary"}
+        {...(busy ? { loading: true } : {})}
+      >
+        {degraded ? "Recover from degraded mode" : "Simulate degraded mode"}
       </s-button>
     </fetcher.Form>
   );
@@ -197,6 +278,23 @@ export default function Registry() {
         </s-banner>
       )}
 
+      {/* [SLIDE C4] Rehearsal control — force/recover the breach branch on stage */}
+      <s-section>
+        <s-box
+          padding="base"
+          borderWidth="base"
+          borderRadius="base"
+          background="subdued"
+        >
+          <s-stack direction="inline" gap="base" alignItems="center">
+            <s-text color="subdued">
+              Rehearsal · breach branch (spec §5d):
+            </s-text>
+            <DegradedControl degraded={degraded} />
+          </s-stack>
+        </s-box>
+      </s-section>
+
       {stores.length > 0 && (
         <s-section>
           <s-stack direction="inline" gap="base">
@@ -224,7 +322,7 @@ export default function Registry() {
               <s-table-header>Plan</s-table-header>
               <s-table-header>Theme</s-table-header>
               <s-table-header>Granted scopes</s-table-header>
-              <s-table-header>Module</s-table-header>
+              <s-table-header>Modules</s-table-header>
               <s-table-header>Last synced</s-table-header>
               <s-table-header>Actions</s-table-header>
             </s-table-header-row>
@@ -286,15 +384,37 @@ export default function Registry() {
                       )}
                     </s-table-cell>
                     <s-table-cell>
-                      <s-badge tone={s.shippingModule ? "success" : "neutral"}>
-                        {s.shippingModule ? "On" : "Off"}
-                      </s-badge>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        <s-badge tone={s.shippingModule ? "success" : "neutral"}>
+                          Shipping
+                        </s-badge>
+                        <s-badge tone={s.dataConnected ? "success" : "neutral"}>
+                          Data
+                        </s-badge>
+                        <s-badge tone={s.fansifterConnected ? "success" : "neutral"}>
+                          Fansifter
+                        </s-badge>
+                      </div>
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">{formatSynced(s.lastSyncedAt)}</s-text>
                     </s-table-cell>
                     <s-table-cell>
-                      <ResyncButton shop={s.shopifyDomain} />
+                      <s-stack direction="block" gap="base">
+                        <ResyncButton shop={s.shopifyDomain} />
+                        <s-stack direction="inline" gap="base">
+                          <ConnectorButton
+                            shop={s.shopifyDomain}
+                            connector="data"
+                            on={s.dataConnected}
+                          />
+                          <ConnectorButton
+                            shop={s.shopifyDomain}
+                            connector="fansifter"
+                            on={s.fansifterConnected}
+                          />
+                        </s-stack>
+                      </s-stack>
                     </s-table-cell>
                   </s-table-row>
                 );

@@ -24,13 +24,28 @@ export function redact(token: string | undefined | null): string {
 // red banner. Kept module-scoped on purpose so one bad credential trips the
 // whole platform loudly rather than failing silently per-shop.
 let degraded = false;
+let simulatedDegraded = false;
+
 export function isDegraded(): boolean {
-  return degraded;
+  // [DEMO] Rehearsal toggles (or SIMULATE_BAD_SECRET=1) force the breach branch on
+  // WITHOUT touching real credentials, so the presenter can show the red banner +
+  // paused jobs on stage safely (spec 5d / section 7).
+  return degraded || simulatedDegraded || process.env.SIMULATE_BAD_SECRET === "1";
 }
+
+// Rehearsal-only: flip simulated degraded mode from the registry page (spec 5d).
+export function setSimulatedDegraded(on: boolean): void {
+  simulatedDegraded = on;
+  console.warn(`[tokenService] SIMULATED degraded mode ${on ? "ON" : "OFF"} (rehearsal — no real credential change)`);
+}
+
 // Recovery hook (used after a secret is fixed — e.g. Phase 3 re-sync / manual clear).
 export function clearDegraded(): void {
-  if (degraded) console.warn("[tokenService] degraded flag cleared — resuming normal operation");
+  if (degraded || simulatedDegraded) {
+    console.warn("[tokenService] degraded flags cleared — resuming normal operation");
+  }
   degraded = false;
+  simulatedDegraded = false;
 }
 
 type CachedToken = { token: string; expiresAt: number };
