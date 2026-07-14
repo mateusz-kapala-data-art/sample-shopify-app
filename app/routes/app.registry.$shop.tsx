@@ -37,6 +37,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       installedAt: store.installedAt.toISOString(),
       uninstalledAt: store.uninstalledAt ? store.uninstalledAt.toISOString() : null,
       lastSyncedAt: store.lastSyncedAt ? store.lastSyncedAt.toISOString() : null,
+      netsuiteLastPush: store.netsuiteLastPush
+        ? store.netsuiteLastPush.toISOString()
+        : null,
     },
     events: events.map((e) => ({
       id: e.id,
@@ -83,6 +86,16 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return { ok: true, intent };
   }
 
+  if (intent === "enable-theme-module") {
+    // SHOW-10: same grant-then-persist shape as enable-module, gated on write_themes.
+    const granted = String(form.get("granted") || "");
+    await db.store.update({
+      where: { shopifyDomain: session.shop },
+      data: { themeModule: true, grantedScopes: granted },
+    });
+    return { ok: true, intent };
+  }
+
   return { ok: false, intent: "unknown" };
 };
 
@@ -122,6 +135,8 @@ export default function StoreDetail() {
   const fansifterFetcher = useFetcher<typeof action>();
   const moduleFetcher = useFetcher<typeof action>();
   const [moduleDeclined, setModuleDeclined] = useState(false);
+  const themeModuleFetcher = useFetcher<typeof action>();
+  const [themeModuleDeclined, setThemeModuleDeclined] = useState(false);
 
   const isCurrent = store.shopifyDomain === currentShop;
   const scopes = store.grantedScopes
@@ -139,6 +154,21 @@ export default function StoreDetail() {
       shopify.toast.show("Shipping module enabled");
     } else {
       setModuleDeclined(true);
+    }
+  };
+
+  // SHOW-10: same shape as enableShippingModule, gated on write_themes.
+  const enableThemeModule = async () => {
+    setThemeModuleDeclined(false);
+    const { granted, grantedScopes } = await ensureScope(shopify, "write_themes");
+    if (granted) {
+      themeModuleFetcher.submit(
+        { intent: "enable-theme-module", granted: grantedScopes.join(",") },
+        { method: "post" },
+      );
+      shopify.toast.show("Theme module enabled");
+    } else {
+      setThemeModuleDeclined(true);
     }
   };
 
@@ -169,6 +199,15 @@ export default function StoreDetail() {
         </s-banner>
       )}
 
+      {themeModuleDeclined && (
+        <s-banner tone="warning" heading="Module unavailable">
+          <s-paragraph>
+            The write_themes scope was declined — the theme module stays off and the
+            app keeps working.
+          </s-paragraph>
+        </s-banner>
+      )}
+
       <s-section heading="Store details">
         <s-stack direction="block" gap="base">
           <s-stack direction="inline" gap="base" alignItems="center">
@@ -187,6 +226,7 @@ export default function StoreDetail() {
             <Field label="Contact email">{store.contactEmail ?? "—"}</Field>
             <Field label="Installed">{fmt(store.installedAt)}</Field>
             <Field label="Last synced">{fmt(store.lastSyncedAt)}</Field>
+            <Field label="NetSuite last push">{fmt(store.netsuiteLastPush)}</Field>
             {store.uninstalledAt && (
               <Field label="Uninstalled">{fmt(store.uninstalledAt)}</Field>
             )}
@@ -220,6 +260,9 @@ export default function StoreDetail() {
             <s-badge tone={store.fansifterConnected ? "success" : "neutral"}>
               Fansifter {store.fansifterConnected ? "on" : "off"}
             </s-badge>
+            <s-badge tone={store.themeModule ? "success" : "neutral"}>
+              Theme {store.themeModule ? "on" : "off"}
+            </s-badge>
           </s-stack>
 
           <s-stack direction="inline" gap="base">
@@ -249,11 +292,16 @@ export default function StoreDetail() {
                 Enable shipping module
               </s-button>
             )}
+            {isCurrent && !store.themeModule && (
+              <s-button variant="primary" onClick={enableThemeModule}>
+                Enable theme module
+              </s-button>
+            )}
           </s-stack>
           {!isCurrent && (
             <s-text color="subdued">
-              Shipping module needs the write_shipping scope, which can only be
-              requested while viewing this store as the logged-in shop.
+              Shipping and theme modules need runtime-granted scopes, which can only
+              be requested while viewing this store as the logged-in shop.
             </s-text>
           )}
         </s-stack>
