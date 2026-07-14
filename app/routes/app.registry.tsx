@@ -72,6 +72,23 @@ function statusTone(status: string): "success" | "critical" | "neutral" {
   return "neutral";
 }
 
+// Strip protocol/trailing slash so the primary domain reads cleanly under the shop.
+function cleanHost(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+function splitScopes(csv: string | null): string[] {
+  return csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+function formatSynced(iso: string | null): string {
+  if (!iso) return "Never";
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 // Per-row re-sync button — its own fetcher so rows submit independently (UI-02).
 function ResyncButton({ shop }: { shop: string }) {
   const fetcher = useFetcher<typeof action>();
@@ -131,6 +148,23 @@ export default function Registry() {
 
   const currentRow = stores.find((s) => s.shopifyDomain === currentShop);
   const moduleOn = currentRow?.shippingModule ?? false;
+  const activeCount = stores.filter((s) => s.status === "active").length;
+  const moduleCount = stores.filter((s) => s.shippingModule).length;
+
+  const Stat = ({ value, label }: { value: number; label: string }) => (
+    <s-box
+      padding="base"
+      borderWidth="base"
+      borderRadius="base"
+      background="subdued"
+      minInlineSize="120px"
+    >
+      <s-stack direction="block" gap="none">
+        <s-heading>{String(value)}</s-heading>
+        <s-text color="subdued">{label}</s-text>
+      </s-stack>
+    </s-box>
+  );
 
   return (
     <s-page heading="Store registry">
@@ -162,52 +196,97 @@ export default function Registry() {
         </s-banner>
       )}
 
-      <s-section heading={`Registered stores (${stores.length})`}>
+      {stores.length > 0 && (
+        <s-section>
+          <s-stack direction="inline" gap="base">
+            <Stat value={stores.length} label="Registered" />
+            <Stat value={activeCount} label="Active" />
+            <Stat value={moduleCount} label="Shipping module on" />
+          </s-stack>
+        </s-section>
+      )}
+
+      <s-section heading="Registered stores">
         {stores.length === 0 ? (
-          <s-paragraph>
-            No stores registered yet. Install the app on a dev store to see a row
-            appear here.
-          </s-paragraph>
+          <s-stack direction="block" gap="base">
+            <s-text type="strong">No stores registered yet</s-text>
+            <s-paragraph>
+              Install the app on a development store — a row appears here
+              automatically the moment the OAuth install completes.
+            </s-paragraph>
+          </s-stack>
         ) : (
           <s-table variant="auto">
             <s-table-header-row>
               <s-table-header listSlot="primary">Store</s-table-header>
               <s-table-header>Status</s-table-header>
               <s-table-header>Plan</s-table-header>
-              <s-table-header>Theme ver.</s-table-header>
+              <s-table-header>Theme</s-table-header>
               <s-table-header>Granted scopes</s-table-header>
               <s-table-header>Module</s-table-header>
               <s-table-header>Last synced</s-table-header>
               <s-table-header>Actions</s-table-header>
             </s-table-header-row>
             <s-table-body>
-              {stores.map((s) => (
-                <s-table-row key={s.shopifyDomain}>
-                  <s-table-cell>
-                    <s-stack direction="block" gap="none">
-                      <s-text type="strong">{s.shopifyDomain}</s-text>
-                      {s.primaryDomain && <s-text color="subdued">{s.primaryDomain}</s-text>}
-                    </s-stack>
-                  </s-table-cell>
-                  <s-table-cell>
-                    <s-badge tone={statusTone(s.status)}>{s.status}</s-badge>
-                  </s-table-cell>
-                  <s-table-cell>{s.plan ?? "—"}</s-table-cell>
-                  <s-table-cell>{s.themeVersion ?? "—"}</s-table-cell>
-                  <s-table-cell>{s.grantedScopes || "—"}</s-table-cell>
-                  <s-table-cell>
-                    <s-badge tone={s.shippingModule ? "success" : "neutral"}>
-                      {s.shippingModule ? "On" : "Off"}
-                    </s-badge>
-                  </s-table-cell>
-                  <s-table-cell>
-                    {s.lastSyncedAt ? new Date(s.lastSyncedAt).toLocaleString() : "—"}
-                  </s-table-cell>
-                  <s-table-cell>
-                    <ResyncButton shop={s.shopifyDomain} />
-                  </s-table-cell>
-                </s-table-row>
-              ))}
+              {stores.map((s) => {
+                const scopes = splitScopes(s.grantedScopes);
+                const isCurrent = s.shopifyDomain === currentShop;
+                return (
+                  <s-table-row key={s.shopifyDomain}>
+                    <s-table-cell>
+                      <s-stack direction="block" gap="none">
+                        <s-stack direction="inline" gap="base" alignItems="center">
+                          <s-text type="strong">{s.shopifyDomain}</s-text>
+                          {isCurrent && <s-badge tone="info">You</s-badge>}
+                        </s-stack>
+                        {s.primaryDomain &&
+                          cleanHost(s.primaryDomain) !== s.shopifyDomain && (
+                            <s-text color="subdued">{cleanHost(s.primaryDomain)}</s-text>
+                          )}
+                      </s-stack>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-badge tone={statusTone(s.status)}>{s.status}</s-badge>
+                    </s-table-cell>
+                    <s-table-cell>{s.plan ?? "—"}</s-table-cell>
+                    <s-table-cell>{s.themeVersion ?? "—"}</s-table-cell>
+                    <s-table-cell>
+                      {scopes.length === 0 ? (
+                        <s-text color="subdued">—</s-text>
+                      ) : (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "4px",
+                            maxWidth: "260px",
+                          }}
+                        >
+                          {scopes.map((sc) => (
+                            <s-badge
+                              key={sc}
+                              tone={sc === "write_shipping" ? "success" : "neutral"}
+                            >
+                              {sc}
+                            </s-badge>
+                          ))}
+                        </div>
+                      )}
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-badge tone={s.shippingModule ? "success" : "neutral"}>
+                        {s.shippingModule ? "On" : "Off"}
+                      </s-badge>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-text color="subdued">{formatSynced(s.lastSyncedAt)}</s-text>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <ResyncButton shop={s.shopifyDomain} />
+                    </s-table-cell>
+                  </s-table-row>
+                );
+              })}
             </s-table-body>
           </s-table>
         )}
