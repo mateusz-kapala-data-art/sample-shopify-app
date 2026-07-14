@@ -27,6 +27,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       primaryDomain: s.primaryDomain,
       status: s.status,
       plan: s.plan,
+      themeName: s.themeName,
       themeVersion: s.themeVersion,
       grantedScopes: s.grantedScopes,
       shippingModule: s.shippingModule,
@@ -249,7 +250,18 @@ export default function Registry() {
                       <s-badge tone={statusTone(s.status)}>{s.status}</s-badge>
                     </s-table-cell>
                     <s-table-cell>{s.plan ?? "—"}</s-table-cell>
-                    <s-table-cell>{s.themeVersion ?? "—"}</s-table-cell>
+                    <s-table-cell>
+                      {s.themeName ? (
+                        <s-stack direction="block" gap="none">
+                          <s-text>{s.themeName}</s-text>
+                          {s.themeVersion && (
+                            <s-text color="subdued">v{s.themeVersion}</s-text>
+                          )}
+                        </s-stack>
+                      ) : (
+                        <s-text color="subdued">—</s-text>
+                      )}
+                    </s-table-cell>
                     <s-table-cell>
                       {scopes.length === 0 ? (
                         <s-text color="subdued">—</s-text>
