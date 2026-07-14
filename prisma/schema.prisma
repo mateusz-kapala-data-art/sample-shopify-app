@@ -52,6 +52,8 @@ model Store {
   shippingModule     Boolean   @default(false)
   dataConnected      Boolean   @default(false)
   fansifterConnected Boolean   @default(false)
+  themeModule        Boolean   @default(false) // NEW — SHOW-01
+  netsuiteLastPush   DateTime? // NEW — SHOW-01
   installedAt        DateTime  @default(now())
   uninstalledAt      DateTime?
   lastSyncedAt       DateTime?
