@@ -55,23 +55,42 @@ export const run: RunFn = async (admin: AdminApiContext, shop, form) => {
   const op = String(form.get("op") || "start");
 
   if (op === "status") {
+    // WHICH export are we asking about? The start branch returns the operation id and
+    // the console rounds it back here. Without that correlation we'd read the newest
+    // finish webhook for the shop — which, once the demo has been rehearsed, is a
+    // PREVIOUS export, and we'd badge it Completed with a stale download link.
+    const wantedId = String(form.get("bulkOperationId") || "");
+    if (!wantedId) {
+      return {
+        data: { status: "none" },
+        error: "No export to check yet — run the export first.",
+      };
+    }
+
     // The finish webhook is HMAC-verified, deduped, and queued by webhooks.tsx, then
     // recorded (no Store mutation needed) by processWebhooks.ts's BULK_OPERATIONS_FINISH
     // case — this WebhookEvent row IS the durable completion record (RESEARCH Pattern 2).
-    const latestEvent = await db.webhookEvent.findFirst({
+    const events = await db.webhookEvent.findMany({
       where: { shop, topic: "BULK_OPERATIONS_FINISH" },
       orderBy: { receivedAt: "desc" },
+      take: 20,
     });
 
-    if (!latestEvent) {
-      return { data: { status: "none" } };
+    const match = events.find((e) => {
+      try {
+        return JSON.parse(e.payload)?.admin_graphql_api_id === wantedId;
+      } catch {
+        return false;
+      }
+    });
+
+    // Honest: our export simply hasn't finished yet. Never borrow another run's result.
+    if (!match) {
+      return { data: { status: "RUNNING" } };
     }
 
-    const payload = JSON.parse(latestEvent.payload);
-    const bulkOperationId = payload.admin_graphql_api_id;
-
     const response = await admin.graphql(BULK_STATUS_QUERY, {
-      variables: { id: bulkOperationId },
+      variables: { id: wantedId },
     });
     const body: any = await response.json();
     const bulkOperation = body?.data?.bulkOperation;
@@ -101,9 +120,13 @@ export const run: RunFn = async (admin: AdminApiContext, shop, form) => {
     };
   }
 
+  const started = body?.data?.bulkOperationRunQuery?.bulkOperation;
   return {
     data: {
-      status: body?.data?.bulkOperationRunQuery?.bulkOperation?.status ?? "RUNNING",
+      status: started?.status ?? "RUNNING",
+      // Surface the id so the console can round-trip it into "Check status" and we
+      // report on THIS export rather than whatever finished last.
+      id: started?.id,
     },
     extensions: body.extensions,
   };

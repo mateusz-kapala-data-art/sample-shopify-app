@@ -3,7 +3,7 @@
 // extensions.cost query-cost/throttle meter. Cards auto-register from
 // app/showcase/*.server.ts via registry.server.ts's import.meta.glob — this shell
 // never needs editing to add a card (see 05-05..05-08).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type {
   ActionFunctionArgs,
@@ -158,6 +158,9 @@ interface QueryCostExtensions {
 interface BulkResultData {
   status?: string;
   url?: string;
+  // The operation the "start" run kicked off — rounded back into "Check status" so we
+  // report on THIS export, not a previous rehearsal's (see bulkExportProducts.server.ts).
+  id?: string;
 }
 
 // Generic, field-driven — any card's result carrying editorPreviewUrl gets a link,
@@ -177,6 +180,9 @@ function DetailPanel({
 }) {
   const fetcher = useFetcher<typeof action>();
   const [declined, setDeclined] = useState(false);
+  // Remembers the bulk operation this panel started, so "Check status" asks about
+  // that export and not the newest finish webhook on the shop.
+  const [startedOpId, setStartedOpId] = useState<string | null>(null);
   const busy = fetcher.state !== "idle";
 
   const result = fetcher.data?.cardId === card.id ? fetcher.data : undefined;
@@ -194,6 +200,13 @@ function DetailPanel({
     card.kind === "bulk" ? (result?.data as BulkResultData | undefined) : undefined;
   const previewUrl = (result?.data as PreviewLinkData | undefined)?.editorPreviewUrl;
 
+  // A "start" run echoes back the operation id — hold on to it so the next
+  // "Check status" can name the export it means.
+  const returnedOpId = bulkData?.id;
+  useEffect(() => {
+    if (returnedOpId) setStartedOpId(returnedOpId);
+  }, [returnedOpId]);
+
   const runCard = async (op?: "start" | "status") => {
     setDeclined(false);
     if (card.scope) {
@@ -204,8 +217,16 @@ function DetailPanel({
         return;
       }
     }
+    // Starting a new export retires the previous operation id immediately, so a
+    // fast "Check status" can never answer with the old export's result.
+    if (op === "start") setStartedOpId(null);
     fetcher.submit(
-      { intent: "run-card", cardId: card.id, ...(op ? { op } : {}) },
+      {
+        intent: "run-card",
+        cardId: card.id,
+        ...(op ? { op } : {}),
+        ...(op === "status" && startedOpId ? { bulkOperationId: startedOpId } : {}),
+      },
       { method: "post" },
     );
   };
