@@ -102,6 +102,12 @@ export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
   if (!duplicatedThemeId) {
     return { error: "themeDuplicate returned no theme id." };
   }
+  // T-05.08-02 is a hard safety invariant, so enforce it here rather than trusting
+  // an assumption about Shopify's response. The next call overwrites a theme file;
+  // if that id is ever the live theme, we refuse instead of writing the storefront.
+  if (duplicatedThemeId === mainTheme.id) {
+    return { error: "Refusing to write: themeDuplicate returned the MAIN theme id." };
+  }
 
   const upsert = await graphqlOrAccessDenied(admin, THEME_FILES_UPSERT_MUTATION, {
     themeId: duplicatedThemeId,
