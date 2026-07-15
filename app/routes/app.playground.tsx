@@ -58,7 +58,8 @@ export const action = async ({
 
   if (intent === "run-card") {
     const cardId = String(form.get("cardId"));
-    const runner = RUNNERS[cardId];
+    // Own-property check: never let an inherited member masquerade as a card runner.
+    const runner = Object.hasOwn(RUNNERS, cardId) ? RUNNERS[cardId] : undefined;
     if (!runner) return { ok: false, cardId, error: "Unknown card" };
     try {
       const result = await runner(admin, session.shop, form);

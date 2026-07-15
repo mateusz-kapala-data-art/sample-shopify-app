@@ -26,6 +26,10 @@ export const CARDS: ActionCard[] = cardEntries
     return a.order - b.order;
   });
 
-export const RUNNERS: Record<string, RunFn> = Object.fromEntries(
-  cardEntries.map((mod) => [mod.card.id, mod.run]),
+// Null-prototype: cardId comes straight off the form, and a plain object would let
+// `RUNNERS["toString"]` resolve to Object.prototype.toString and sail past the
+// "unknown card" guard. Only real cards should ever be reachable here.
+export const RUNNERS: Record<string, RunFn> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(cardEntries.map((mod) => [mod.card.id, mod.run])),
 );
