@@ -356,6 +356,14 @@ export default function Playground() {
                 </s-option>
               ))}
             </s-select>
+            {/* This picker navigates the registry — it deliberately does NOT retarget
+                runs. Cards always execute in the logged-in shop's admin context;
+                running one session's cards against another merchant's store would be
+                a real security hole, so the control must not imply it. */}
+            <s-text color="subdued">
+              Cards always run against the logged-in store ({currentShop}). This
+              picker only chooses whose registry row to open.
+            </s-text>
             <s-link href={`/app/registry/${encodeURIComponent(selectedShop)}`}>
               View in registry →
             </s-link>
