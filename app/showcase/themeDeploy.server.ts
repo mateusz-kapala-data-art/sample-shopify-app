@@ -47,6 +47,9 @@ export const THEME_FILES_UPSERT_MUTATION = `#graphql
     }
   }`;
 
+// One rehearsed sentence for the exemption gap, wherever it surfaces.
+const EXEMPTION_MESSAGE = "Theme exemption not yet granted — see rehearsal fallback";
+
 const SNIPPET_FILENAME = "snippets/sony-platform.liquid";
 const SNIPPET_CONTENT = `{% comment %} [SHOWCASE] SHOW-10 — deployed by the Sony Platform app's Theme deployment card. Never written to the live/published theme. {% endcomment %}\n<div class="sony-platform-snippet">Sony Platform module active</div>\n`;
 
@@ -63,27 +66,25 @@ export const card: ActionCard = {
 };
 
 export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
-  const mainResponse = await admin.graphql(MAIN_THEME_QUERY);
-  const mainBody: any = await mainResponse.json();
+  const main = await graphqlOrAccessDenied(admin, MAIN_THEME_QUERY);
+  if (main.accessDenied) return { error: EXEMPTION_MESSAGE };
+  const mainBody: any = main.body;
   const mainTheme = mainBody?.data?.themes?.nodes?.[0];
   if (!mainTheme?.id) {
     return { error: "No main theme found to duplicate." };
   }
 
-  const duplicateResponse = await admin.graphql(THEME_DUPLICATE_MUTATION, {
-    variables: {
-      id: mainTheme.id,
-      name: `Sony Platform Demo — ${new Date().toISOString()}`,
-    },
+  const duplicate = await graphqlOrAccessDenied(admin, THEME_DUPLICATE_MUTATION, {
+    id: mainTheme.id,
+    name: `Sony Platform Demo — ${new Date().toISOString()}`,
   });
-  const duplicateBody: any = await duplicateResponse.json();
-
   // Pitfall 4: ACCESS_DENIED here means "exemption not yet granted," a distinct,
   // expected state — not a generic run failure.
-  if (hasAccessDenied(duplicateBody)) {
-    return {
-      error: "Theme exemption not yet granted — see rehearsal fallback",
-    };
+  if (duplicate.accessDenied) return { error: EXEMPTION_MESSAGE };
+  const duplicateBody: any = duplicate.body;
+
+  if (hasAccessDeniedUserError(duplicateBody)) {
+    return { error: EXEMPTION_MESSAGE };
   }
 
   const duplicateUserErrors = duplicateBody?.data?.themeDuplicate?.userErrors ?? [];
@@ -102,18 +103,15 @@ export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
     return { error: "themeDuplicate returned no theme id." };
   }
 
-  const upsertResponse = await admin.graphql(THEME_FILES_UPSERT_MUTATION, {
-    variables: {
-      themeId: duplicatedThemeId,
-      files: [{ filename: SNIPPET_FILENAME, body: { type: "TEXT", value: SNIPPET_CONTENT } }],
-    },
+  const upsert = await graphqlOrAccessDenied(admin, THEME_FILES_UPSERT_MUTATION, {
+    themeId: duplicatedThemeId,
+    files: [{ filename: SNIPPET_FILENAME, body: { type: "TEXT", value: SNIPPET_CONTENT } }],
   });
-  const upsertBody: any = await upsertResponse.json();
+  if (upsert.accessDenied) return { error: EXEMPTION_MESSAGE };
+  const upsertBody: any = upsert.body;
 
-  if (hasAccessDenied(upsertBody)) {
-    return {
-      error: "Theme exemption not yet granted — see rehearsal fallback",
-    };
+  if (hasAccessDeniedUserError(upsertBody)) {
+    return { error: EXEMPTION_MESSAGE };
   }
 
   const upsertUserErrors = upsertBody?.data?.themeFilesUpsert?.userErrors ?? [];
@@ -137,13 +135,46 @@ export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
   };
 };
 
-// ACCESS_DENIED can surface either as a top-level GraphQL error or as a userError
-// code/message on either mutation — check both shapes so the exemption-gap message
-// is distinct wherever Shopify puts it.
-function hasAccessDenied(body: any): boolean {
-  const topLevel: any[] = body?.errors ?? [];
-  if (topLevel.some((e) => e?.extensions?.code === "ACCESS_DENIED")) return true;
+// ACCESS_DENIED does NOT arrive as body.errors. On HTTP 200 with graphQLErrors the
+// SDK throws GraphqlQueryError before admin.graphql returns
+// (@shopify/shopify-api/lib/clients/common.js -> throwFailedRequest), and the app SDK
+// re-throws any non-HttpResponseError untouched (handle-client-error.js). So the
+// exemption gap — the single most likely failure for this card (RESEARCH Pitfall 4) —
+// only ever reaches us as a throw. Catch it here, or the console shows a generic
+// error instead of the rehearsed message.
+async function graphqlOrAccessDenied(
+  admin: AdminApiContext,
+  query: string,
+  variables?: object,
+): Promise<{ body?: any; accessDenied?: boolean }> {
+  try {
+    const response = await admin.graphql(
+      query,
+      variables ? { variables } : undefined,
+    );
+    return { body: await response.json() };
+  } catch (err) {
+    // Re-auth / 401 / 429 / 5xx arrive as a Response — control flow, must propagate (CR-01).
+    if (err instanceof Response) throw err;
+    if (isAccessDeniedError(err)) return { accessDenied: true };
+    throw err;
+  }
+}
 
+// GraphqlQueryError carries the parsed body, so read the real error code rather than
+// pattern-matching prose; fall back to the message for other shapes.
+function isAccessDeniedError(err: unknown): boolean {
+  const graphQLErrors: any[] =
+    (err as { body?: { errors?: { graphQLErrors?: any[] } } })?.body?.errors
+      ?.graphQLErrors ?? [];
+  if (graphQLErrors.some((e) => e?.extensions?.code === "ACCESS_DENIED")) return true;
+  return /access.?denied|exemption/i.test((err as Error)?.message ?? "");
+}
+
+// Belt-and-braces: neither ThemeDuplicateUserError nor OnlineStoreThemeFilesUpsertUserErrors
+// currently defines an ACCESS_DENIED code, so this is unlikely to fire — kept because it is
+// cheap and Shopify may add one.
+function hasAccessDeniedUserError(body: any): boolean {
   const allUserErrors: any[] = [
     ...(body?.data?.themeDuplicate?.userErrors ?? []),
     ...(body?.data?.themeFilesUpsert?.userErrors ?? []),
