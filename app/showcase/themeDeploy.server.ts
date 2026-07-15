@@ -129,7 +129,12 @@ export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
     };
   }
 
-  const editorPreviewUrl = `https://admin.shopify.com/store/${_shop.replace(/\.myshopify\.com$/, "")}/themes/${duplicatedThemeId.replace(/\D/g, "")}/editor`;
+  // Take the last path segment, not "strip every non-digit" — the latter only works
+  // while no digit appears anywhere in the GID prefix, and would silently mangle the
+  // id (404 link, no error) the day one does.
+  const numericId = duplicatedThemeId.split("/").pop() ?? "";
+  const storeHandle = _shop.replace(/\.myshopify\.com$/, "");
+  const editorPreviewUrl = `https://admin.shopify.com/store/${storeHandle}/themes/${numericId}/editor`;
 
   return {
     data: {
