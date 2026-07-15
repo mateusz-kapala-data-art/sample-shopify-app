@@ -152,6 +152,12 @@ interface BulkResultData {
   url?: string;
 }
 
+// Generic, field-driven — any card's result carrying editorPreviewUrl gets a link,
+// no card-id gating needed (zero-edits-per-new-card, see 05-04-SUMMARY).
+interface PreviewLinkData {
+  editorPreviewUrl?: string;
+}
+
 // The detail panel — request preview, Run, raw response, cost meter, and the generic
 // bulk-kind branch (Run/Check status/Download JSONL) that 05-06's card plugs into.
 function DetailPanel({
@@ -178,6 +184,7 @@ function DetailPanel({
 
   const bulkData =
     card.kind === "bulk" ? (result?.data as BulkResultData | undefined) : undefined;
+  const previewUrl = (result?.data as PreviewLinkData | undefined)?.editorPreviewUrl;
 
   const runCard = async (op?: "start" | "status") => {
     setDeclined(false);
@@ -255,6 +262,11 @@ function DetailPanel({
         )}
         {card.kind === "bulk" && bulkData?.url && (
           <s-link href={bulkData.url}>Download JSONL</s-link>
+        )}
+
+        {/* [SLIDE §6] SHOW-10 theme-deployment preview link, fed by the run result */}
+        {previewUrl && (
+          <s-link href={previewUrl}>Preview in theme editor →</s-link>
         )}
 
         {/* (c) raw response */}
