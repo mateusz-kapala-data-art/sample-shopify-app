@@ -56,7 +56,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       await resyncStore(shop);
       return { ok: true, intent, shop };
-    } catch {
+    } catch (err) {
+      // A thrown Response is React Router control flow (re-auth), not a failure.
+      if (err instanceof Response) throw err;
       // getAdminToken may have tripped SEC-04 degraded mode on invalid_client.
       return { ok: false, intent, shop, error: "Re-sync failed — check credentials (may be in degraded mode)." };
     }

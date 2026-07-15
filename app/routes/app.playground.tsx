@@ -64,7 +64,15 @@ export const action = async ({
       const result = await runner(admin, session.shop, form);
       return { ok: !result.error, cardId, ...result };
     } catch (err) {
-      return { ok: false, cardId, error: (err as Error).message };
+      // The Shopify SDK throws a Response (not an Error) for 401/429/5xx — that IS
+      // React Router's re-auth control flow. Swallowing it here would leave the
+      // session unrefreshed and every later card silently dead. Propagate it.
+      if (err instanceof Response) throw err;
+      return {
+        ok: false,
+        cardId,
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 

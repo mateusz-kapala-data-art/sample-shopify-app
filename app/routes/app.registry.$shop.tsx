@@ -60,7 +60,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     try {
       await resyncStore(shop);
       return { ok: true, intent };
-    } catch {
+    } catch (err) {
+      // A thrown Response is React Router control flow (re-auth), not a failure.
+      if (err instanceof Response) throw err;
       return { ok: false, intent, error: "Re-sync failed (may be in degraded mode)." };
     }
   }
