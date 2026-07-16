@@ -255,7 +255,8 @@ function DetailPanel({
 
         {card.scope && !result && (
           <s-text color="subdued">
-            This card needs the {card.scope} scope, which hasn&apos;t been granted yet.
+            This card requires the {card.scope} scope — you&apos;ll be asked to grant
+            it if you haven&apos;t already.
           </s-text>
         )}
 
