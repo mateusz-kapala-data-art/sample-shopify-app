@@ -19,6 +19,7 @@ import {
   cleanHost,
   formatSyncedShort,
 } from "../lib/presentation";
+import { useAutoRevalidate } from "../lib/useAutoRevalidate";
 
 // [SLIDE D1] UI-04: the registry query — kept character-identical to the deck's Slide D1
 // so the on-screen code matches the slide. This is the exact shape afterAuth/resync use
@@ -99,14 +100,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 function ResyncButton({ shop }: { shop: string }) {
   const fetcher = useFetcher<typeof action>();
   const busy = fetcher.state !== "idle";
+  // Surface a failed re-sync instead of silently doing nothing (e.g. a client-credentials
+  // token failure) — otherwise "nothing changed" is indistinguishable from a no-op.
+  const result = fetcher.data as
+    | { ok?: boolean; intent?: string; error?: string }
+    | undefined;
+  const failed = result?.intent === "resync" && result?.ok === false;
   return (
-    <fetcher.Form method="post">
-      <input type="hidden" name="intent" value="resync" />
-      <input type="hidden" name="shop" value={shop} />
-      <s-button type="submit" variant="secondary" {...(busy ? { loading: true } : {})}>
-        Re-sync
-      </s-button>
-    </fetcher.Form>
+    <s-stack direction="block" gap="small">
+      <fetcher.Form method="post">
+        <input type="hidden" name="intent" value="resync" />
+        <input type="hidden" name="shop" value={shop} />
+        <s-button type="submit" variant="secondary" {...(busy ? { loading: true } : {})}>
+          Re-sync
+        </s-button>
+      </fetcher.Form>
+      {failed && <s-text tone="critical">{result?.error ?? "Re-sync failed"}</s-text>}
+    </s-stack>
   );
 }
 
@@ -127,6 +137,8 @@ function DegradedControl({ degraded }: { degraded: boolean }) {
 
 export default function Registry() {
   const { stores, currentShop, degraded } = useLoaderData<typeof loader>();
+  // Seamless + instant: reflect installs, webhook updates, and re-syncs live (UI-02).
+  useAutoRevalidate(4000);
   const activeCount = stores.filter((s) => s.status === "active").length;
 
   const Stat = ({ value, label }: { value: number; label: string }) => (

@@ -53,6 +53,11 @@ async function upsertStoreRow(
     update: {
       primaryDomain: shop?.primaryDomain?.url ?? null,
       plan: shop?.plan?.displayName ?? null,
+      contactEmail: shop?.contactEmail ?? null,
+      // A re-sync must reflect a live theme rename — previously omitted here, so the
+      // registry never updated the theme name on re-sync. `?? undefined` = leave the
+      // stored name untouched if this fetch couldn't read one (don't clobber on a hiccup).
+      themeName: themeName ?? undefined,
       status: "active",
       uninstalledAt: null, // reinstall/revisit clears prior uninstall
       lastSyncedAt: new Date(),

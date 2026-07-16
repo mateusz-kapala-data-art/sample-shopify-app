@@ -14,6 +14,7 @@ import db from "../db.server";
 import { isDegraded } from "../lib/tokenService.server";
 import { resyncStore } from "../lib/registrySync.server";
 import { DeckAnchor, statusTone, cleanHost, formatSynced, splitScopes } from "../lib/presentation";
+import { useAutoRevalidate } from "../lib/useAutoRevalidate";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -81,6 +82,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function StoreDetail() {
   const { store, events, currentShop, degraded } = useLoaderData<typeof loader>();
+  // Seamless + instant: new per-store webhook events and field changes appear live.
+  useAutoRevalidate(4000);
   const resyncFetcher = useFetcher<typeof action>();
   const isCurrent = store.shopifyDomain === currentShop;
   const scopes = splitScopes(store.grantedScopes);

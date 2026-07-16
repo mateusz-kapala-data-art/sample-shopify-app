@@ -8,6 +8,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { DeckAnchor, formatSynced } from "../lib/presentation";
+import { useAutoRevalidate } from "../lib/useAutoRevalidate";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -28,6 +29,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function WebhookLog() {
   const { events } = useLoaderData<typeof loader>();
+  // Seamless + instant: a delivery appears here within seconds of arriving.
+  useAutoRevalidate(4000);
 
   return (
     <s-page heading="Webhook log" inlineSize="large">
