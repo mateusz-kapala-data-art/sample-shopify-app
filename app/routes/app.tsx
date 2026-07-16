@@ -17,10 +17,13 @@ export default function App() {
 
   return (
     <AppProvider embedded apiKey={apiKey}>
+      {/* [ADDENDUM A2] Nav = presentation order, one item per on-stage demo. Nothing else. */}
       <s-app-nav>
-        <s-link href="/app">Home</s-link>
-        <s-link href="/app/registry">Store registry</s-link>
-        <s-link href="/app/additional">Additional page</s-link>
+        <s-link href="/app">Registry</s-link>
+        <s-link href="/app/versions">Versions</s-link>
+        <s-link href="/app/webhooks">Webhooks</s-link>
+        <s-link href="/app/permissions">Permissions</s-link>
+        <s-link href="/app/about">About</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

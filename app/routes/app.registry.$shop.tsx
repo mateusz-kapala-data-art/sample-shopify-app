@@ -1,21 +1,19 @@
-// [DEMO 5] [SLIDE D3] Per-store detail — drill into one registered store: full
-// registry fields, module toggles (shipping via runtime scope; Data/Fansifter as
-// platform flags), on-demand re-sync (UI-02), and the recent webhook events that
-// kept this row current (HOOK-02..06 in action).
-import { useState } from "react";
+// [DEMO 5] [SLIDE D4] Per-store detail — a read-only drill-in from the registry: full
+// registry fields, static module status (data connection is a hard-coded internal
+// status per spec §5), on-demand re-sync (UI-02), and the recent webhook events that
+// kept this row current (HOOK-02..06 in action). Not in the nav — reached by row click.
 import type {
   ActionFunctionArgs,
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
 import { useFetcher, useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { isDegraded } from "../lib/tokenService.server";
 import { resyncStore } from "../lib/registrySync.server";
-import { ensureScope } from "../lib/scopesClient";
+import { DeckAnchor, statusTone, cleanHost, formatSynced, splitScopes } from "../lib/presentation";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -48,76 +46,28 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const shop = decodeURIComponent(params.shop ?? "");
   const form = await request.formData();
   const intent = String(form.get("intent"));
 
-  // [DEMO SCOPE] Single-org platform app: every installed store belongs to Sony, so
-  // any authenticated operator may act on any registry row (the target shop comes from
-  // the route param). session.shop is NOT an authorization boundary here. A multi-tenant
-  // deployment MUST gate these mutations on an operator role.
-
+  // [DEMO SCOPE] Single-org platform app: any authenticated operator may re-sync any
+  // registry row (the target shop is the route param). session.shop is NOT an
+  // authorization boundary here — a multi-tenant deploy MUST gate on an operator role.
   if (intent === "resync") {
-    // Validate the target row exists before acting on it.
     const store = await db.store.findUnique({ where: { shopifyDomain: shop } });
     if (!store) return { ok: false, intent, error: "Store not found" };
     try {
       await resyncStore(shop);
       return { ok: true, intent };
     } catch (err) {
-      // A thrown Response is React Router control flow (re-auth), not a failure.
-      if (err instanceof Response) throw err;
+      if (err instanceof Response) throw err; // React Router control flow (re-auth)
       return { ok: false, intent, error: "Re-sync failed (may be in degraded mode)." };
     }
   }
 
-  if (intent === "toggle-connector") {
-    const connector = String(form.get("connector"));
-    const store = await db.store.findUnique({ where: { shopifyDomain: shop } });
-    if (!store) return { ok: false, intent, error: "Store not found" };
-    const field = connector === "fansifter" ? "fansifterConnected" : "dataConnected";
-    await db.store.update({
-      where: { shopifyDomain: shop },
-      data: { [field]: !store[field] },
-    });
-    return { ok: true, intent, connector };
-  }
-
-  if (intent === "enable-module") {
-    // updateMany, not update: update() throws Prisma P2025 if the registry row is
-    // missing, surfacing a raw error banner instead of an honest "not in registry".
-    const granted = String(form.get("granted") || "");
-    const updated = await db.store.updateMany({
-      where: { shopifyDomain: session.shop },
-      data: { shippingModule: true, grantedScopes: granted },
-    });
-    if (updated.count === 0) {
-      return { ok: false, intent, error: "Store not in registry — nothing to update." };
-    }
-    return { ok: true, intent };
-  }
-
   return { ok: false, intent: "unknown" };
 };
-
-function statusTone(status: string): "success" | "critical" | "neutral" {
-  if (status === "active") return "success";
-  if (status === "uninstalled") return "critical";
-  return "neutral";
-}
-
-function cleanHost(url: string): string {
-  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
-function fmt(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 // One label/value row in the details list.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -131,74 +81,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function StoreDetail() {
   const { store, events, currentShop, degraded } = useLoaderData<typeof loader>();
-  const shopify = useAppBridge();
   const resyncFetcher = useFetcher<typeof action>();
-  const dataFetcher = useFetcher<typeof action>();
-  const fansifterFetcher = useFetcher<typeof action>();
-  const moduleFetcher = useFetcher<typeof action>();
-  const [moduleDeclined, setModuleDeclined] = useState(false);
-  // Distinct from a decline: an App Bridge / network failure must not leave the
-  // button silently doing nothing (WR-07).
-  const [scopeError, setScopeError] = useState<string | null>(null);
-
   const isCurrent = store.shopifyDomain === currentShop;
-  const scopes = store.grantedScopes
-    ? store.grantedScopes.split(",").map((s) => s.trim()).filter(Boolean)
-    : [];
-
-  const enableShippingModule = async () => {
-    setModuleDeclined(false);
-    setScopeError(null);
-    const { granted, grantedScopes, error } = await ensureScope(
-      shopify,
-      "write_shipping",
-    );
-    if (error) {
-      setScopeError(error);
-    } else if (granted) {
-      moduleFetcher.submit(
-        { intent: "enable-module", granted: grantedScopes.join(",") },
-        { method: "post" },
-      );
-      shopify.toast.show("Shipping module enabled");
-    } else {
-      setModuleDeclined(true);
-    }
-  };
-
-  const toggle = (fetcher: typeof dataFetcher, connector: "data" | "fansifter") =>
-    fetcher.submit({ intent: "toggle-connector", connector }, { method: "post" });
+  const scopes = splitScopes(store.grantedScopes);
 
   return (
     <s-page heading={store.shopifyDomain}>
-      <s-button slot="primary-action" href="/app/registry" variant="tertiary">
+      <DeckAnchor>Registry · store detail · Demo 5 · deck section D</DeckAnchor>
+      <s-button slot="primary-action" href="/app" variant="tertiary">
         ← Back to registry
       </s-button>
 
       {degraded && (
         <s-banner tone="critical" heading="Token service degraded">
           <s-paragraph>
-            Background jobs are paused until credentials recover. Re-sync will fail
-            while degraded.
-          </s-paragraph>
-        </s-banner>
-      )}
-
-      {moduleDeclined && (
-        <s-banner tone="warning" heading="Module unavailable">
-          <s-paragraph>
-            The write_shipping scope was declined — the shipping module stays off and
-            the app keeps working.
-          </s-paragraph>
-        </s-banner>
-      )}
-
-      {/* WR-07: App Bridge / network failure — distinct from a decline */}
-      {scopeError && (
-        <s-banner tone="critical" heading="Permission request failed">
-          <s-paragraph>
-            Couldn&apos;t reach the App Bridge scopes API ({scopeError}). This is a
-            connection problem, not a decline — try again.
+            Background jobs are paused until credentials recover. Re-sync will fail while
+            degraded.
           </s-paragraph>
         </s-banner>
       )}
@@ -219,10 +117,10 @@ export default function StoreDetail() {
               {store.primaryDomain ? cleanHost(store.primaryDomain) : "—"}
             </Field>
             <Field label="Contact email">{store.contactEmail ?? "—"}</Field>
-            <Field label="Installed">{fmt(store.installedAt)}</Field>
-            <Field label="Last synced">{fmt(store.lastSyncedAt)}</Field>
+            <Field label="Installed">{formatSynced(store.installedAt)}</Field>
+            <Field label="Last synced">{formatSynced(store.lastSyncedAt)}</Field>
             {store.uninstalledAt && (
-              <Field label="Uninstalled">{fmt(store.uninstalledAt)}</Field>
+              <Field label="Uninstalled">{formatSynced(store.uninstalledAt)}</Field>
             )}
           </s-grid>
         </s-stack>
@@ -234,7 +132,7 @@ export default function StoreDetail() {
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
             {scopes.map((sc) => (
-              <s-badge key={sc} tone={sc === "write_shipping" ? "success" : "neutral"}>
+              <s-badge key={sc} tone={sc === "read_locales" ? "success" : "neutral"}>
                 {sc}
               </s-badge>
             ))}
@@ -242,62 +140,30 @@ export default function StoreDetail() {
         )}
       </s-section>
 
-      <s-section heading="Modules & actions">
+      <s-section heading="Modules">
         <s-stack direction="block" gap="base">
+          {/* spec §5/§9: data connection is a hard-coded internal status, not live */}
           <s-stack direction="inline" gap="base" alignItems="center">
-            <s-badge tone={store.shippingModule ? "success" : "neutral"}>
-              Shipping {store.shippingModule ? "on" : "off"}
+            <s-badge tone={store.dataConnected ? "info" : "neutral"}>
+              Data · internal {store.dataConnected ? "connected" : "off"}
             </s-badge>
-            <s-badge tone={store.dataConnected ? "success" : "neutral"}>
-              Data {store.dataConnected ? "on" : "off"}
-            </s-badge>
-            <s-badge tone={store.fansifterConnected ? "success" : "neutral"}>
-              Fansifter {store.fansifterConnected ? "on" : "off"}
+            <s-badge tone={store.fansifterConnected ? "info" : "neutral"}>
+              Fansifter · internal {store.fansifterConnected ? "connected" : "off"}
             </s-badge>
           </s-stack>
-
-          <s-stack direction="inline" gap="base">
-            <s-button
-              variant="secondary"
-              onClick={() => resyncFetcher.submit({ intent: "resync" }, { method: "post" })}
-              {...(resyncFetcher.state !== "idle" ? { loading: true } : {})}
-            >
-              Run re-sync now
-            </s-button>
-            <s-button
-              variant="tertiary"
-              onClick={() => toggle(dataFetcher, "data")}
-              {...(dataFetcher.state !== "idle" ? { loading: true } : {})}
-            >
-              {store.dataConnected ? "Disconnect Data" : "Connect Data"}
-            </s-button>
-            <s-button
-              variant="tertiary"
-              onClick={() => toggle(fansifterFetcher, "fansifter")}
-              {...(fansifterFetcher.state !== "idle" ? { loading: true } : {})}
-            >
-              {store.fansifterConnected ? "Disconnect Fansifter" : "Connect Fansifter"}
-            </s-button>
-            {isCurrent && !store.shippingModule && (
-              <s-button variant="primary" onClick={enableShippingModule}>
-                Enable shipping module
-              </s-button>
-            )}
-          </s-stack>
-          {!isCurrent && (
-            <s-text color="subdued">
-              The shipping module needs the write_shipping scope, which can only be
-              requested while viewing this store as the logged-in shop.
-            </s-text>
-          )}
+          <s-button
+            variant="secondary"
+            onClick={() => resyncFetcher.submit({ intent: "resync" }, { method: "post" })}
+            {...(resyncFetcher.state !== "idle" ? { loading: true } : {})}
+          >
+            Run re-sync now
+          </s-button>
         </s-stack>
       </s-section>
 
       <s-section heading={`Recent webhook events (${events.length})`}>
         {events.length === 0 ? (
-          <s-text color="subdued">
-            No webhook events recorded for this store yet.
-          </s-text>
+          <s-text color="subdued">No webhook events recorded for this store yet.</s-text>
         ) : (
           <s-table variant="auto">
             <s-table-header-row>
@@ -310,7 +176,7 @@ export default function StoreDetail() {
                 <s-table-row key={e.id}>
                   <s-table-cell>{e.topic}</s-table-cell>
                   <s-table-cell>
-                    <s-text color="subdued">{fmt(e.receivedAt)}</s-text>
+                    <s-text color="subdued">{formatSynced(e.receivedAt)}</s-text>
                   </s-table-cell>
                   <s-table-cell>
                     <s-badge tone={e.processedAt ? "success" : "neutral"}>
