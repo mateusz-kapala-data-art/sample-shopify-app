@@ -32,3 +32,15 @@ export function formatSynced(iso: string | null): string {
 export function splitScopes(csv: string | null): string[] {
   return csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
 }
+
+// Compact variant for dense tables — drops the year so a timestamp doesn't wrap the
+// column (e.g. "Jul 16, 09:57"). formatSynced stays the long form for detail views.
+export function formatSyncedShort(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

@@ -17,8 +17,7 @@ import {
   DeckAnchor,
   statusTone,
   cleanHost,
-  formatSynced,
-  splitScopes,
+  formatSyncedShort,
 } from "../lib/presentation";
 
 // [SLIDE D1] UI-04: the registry query — kept character-identical to the deck's Slide D1
@@ -54,7 +53,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       plan: s.plan,
       themeName: s.themeName,
       themeVersion: s.themeVersion,
-      grantedScopes: s.grantedScopes,
       dataConnected: s.dataConnected,
       fansifterConnected: s.fansifterConnected,
       lastSyncedAt: s.lastSyncedAt ? s.lastSyncedAt.toISOString() : null,
@@ -96,20 +94,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   return { ok: false, intent: "unknown" };
 };
-
-// Compact granted-scopes summary — highlight the optional module scope, count the rest.
-function ScopeSummary({ scopes }: { scopes: string[] }) {
-  if (scopes.length === 0) return <s-text color="subdued">—</s-text>;
-  const optional = scopes.filter((s) => s === "read_locales");
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
-      {optional.map((s) => (
-        <s-badge key={s} tone="success">{s}</s-badge>
-      ))}
-      <s-text color="subdued">{scopes.length} total</s-text>
-    </div>
-  );
-}
 
 // Per-row re-sync — its own fetcher so rows submit independently (UI-02).
 function ResyncButton({ shop }: { shop: string }) {
@@ -206,8 +190,7 @@ export default function Registry() {
                 <s-table-header>Plan</s-table-header>
                 <s-table-header>Theme</s-table-header>
                 <s-table-header>Data connection</s-table-header>
-                <s-table-header>Granted scopes</s-table-header>
-                <s-table-header>Last synced</s-table-header>
+                <s-table-header>Synced</s-table-header>
                 <s-table-header>Actions</s-table-header>
               </s-table-header-row>
               <s-table-body>
@@ -249,10 +232,7 @@ export default function Registry() {
                         </s-badge>
                       </s-table-cell>
                       <s-table-cell>
-                        <ScopeSummary scopes={splitScopes(s.grantedScopes)} />
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-text color="subdued">{formatSynced(s.lastSyncedAt)}</s-text>
+                        <s-text color="subdued">{formatSyncedShort(s.lastSyncedAt)}</s-text>
                       </s-table-cell>
                       <s-table-cell>
                         <ResyncButton shop={s.shopifyDomain} />
