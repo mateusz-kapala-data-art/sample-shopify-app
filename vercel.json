@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma generate && react-router build"
+  "buildCommand": "npx react-router build"
 }
