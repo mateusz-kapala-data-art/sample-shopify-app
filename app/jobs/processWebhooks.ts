@@ -1,7 +1,8 @@
-// [DEMO 2] [SLIDE D1] Interval worker — drains WebhookEvent (queued by
-// app/routes/webhooks.tsx) and applies each event to the registry
-// (HOOK-03..06). Decouples "acknowledge fast" (the route's immediate 200)
-// from "apply slow" (this worker's DB/GraphQL-adjacent work).
+// [DEMO 2] [SLIDE D1] WebhookEvent application (HOOK-03..06). On Vercel (serverless)
+// there is no long-lived process, so app/routes/webhooks.tsx applies each event INLINE
+// via applyWebhookEvent() right after the idempotent insert. Locally, the interval
+// worker below is a backstop that drains anything the inline path missed. Both share
+// applyWebhookEvent so the switch lives in one place.
 import db from "../db.server";
 import { handleComplianceEvent } from "../lib/compliance.server";
 import { isDegraded, evictAdminToken } from "../lib/tokenService.server";
@@ -21,6 +22,67 @@ declare global {
 const MAX_ATTEMPTS = 3;
 const attempts = new Map<string, number>();
 
+// Apply one webhook to the registry. NOTE: topic arrives in SCREAMING_SNAKE_CASE
+// (authenticate.webhook() / normalizeTopic), not the toml's slash form. No token
+// service is used here, so this runs fine inline on serverless (no degraded gate).
+export async function applyWebhookEvent(event: {
+  id: string;
+  topic: string;
+  shop: string;
+  payload: string;
+}): Promise<void> {
+  switch (event.topic) {
+    case "APP_UNINSTALLED": {
+      await db.store.updateMany({
+        where: { shopifyDomain: event.shop },
+        data: { uninstalledAt: new Date(), status: "uninstalled" },
+      });
+      // Wipe the shop's stored access-token/session rows (HOOK-05) and evict any
+      // cached admin token (SEC-02) so a stale token is never reused after uninstall.
+      await db.session.deleteMany({ where: { shop: event.shop } });
+      evictAdminToken(event.shop);
+      break;
+    }
+    case "SHOP_UPDATE": {
+      // [Assumption A3 — RESEARCH.md] exact 2026-07 field names are unconfirmed; an
+      // end-of-phase human check captures a real payload and adjusts this mapping.
+      const payload = JSON.parse(event.payload);
+      await db.store.updateMany({
+        where: { shopifyDomain: event.shop },
+        data: {
+          primaryDomain: payload.domain ?? undefined,
+          plan: payload.plan_display_name ?? payload.plan_name ?? undefined,
+        },
+      });
+      break;
+    }
+    case "APP_SCOPES_UPDATE": {
+      const payload = JSON.parse(event.payload);
+      const current = (payload.current as string[]) ?? [];
+      // Keep the Session's scope current (behavior the deleted scopes_update route had).
+      await db.session.updateMany({
+        where: { shop: event.shop },
+        data: { scope: current.toString() },
+      });
+      // WR-09: Shopify's authoritative scope-change signal — reconcile the persisted
+      // grant state so the registry converges to real grants regardless of what the
+      // client round-tripped. updateMany is a no-op if the store row is absent.
+      await db.store.updateMany({
+        where: { shopifyDomain: event.shop },
+        data: { grantedScopes: current.join(",") },
+      });
+      break;
+    }
+    case "CUSTOMERS_DATA_REQUEST":
+    case "CUSTOMERS_REDACT":
+    case "SHOP_REDACT":
+      await handleComplianceEvent(event.topic, event.shop, event.payload);
+      break;
+    default:
+      break;
+  }
+}
+
 async function drainQueue() {
   // SEC-04: pause job processing while the token service is degraded (an
   // invalid_client grant tripped the flag). Events stay queued (processedAt null)
@@ -39,64 +101,7 @@ async function drainQueue() {
 
   for (const event of pending) {
     try {
-      // NOTE: authenticate.webhook() returns topic in SCREAMING_SNAKE_CASE
-      // (e.g. APP_UNINSTALLED), not the toml's slash form (app/uninstalled).
-      switch (event.topic) {
-        case "APP_UNINSTALLED": {
-          await db.store.updateMany({
-            where: { shopifyDomain: event.shop },
-            data: { uninstalledAt: new Date(), status: "uninstalled" },
-          });
-          // Wipe the shop's stored access-token/session rows (HOOK-05) and evict
-          // any cached admin token (SEC-02) so a stale token is never reused after
-          // uninstall.
-          await db.session.deleteMany({ where: { shop: event.shop } });
-          evictAdminToken(event.shop);
-          break;
-        }
-        case "SHOP_UPDATE": {
-          // [Assumption A3 — RESEARCH.md] exact 2026-07 field names are
-          // unconfirmed; end-of-phase human check captures a real payload
-          // and this mapping is adjusted if it differs.
-          const payload = JSON.parse(event.payload);
-          await db.store.updateMany({
-            where: { shopifyDomain: event.shop },
-            data: {
-              primaryDomain: payload.domain ?? undefined,
-              plan: payload.plan_display_name ?? payload.plan_name ?? undefined,
-            },
-          });
-          break;
-        }
-        case "APP_SCOPES_UPDATE": {
-          const payload = JSON.parse(event.payload);
-          const current = (payload.current as string[]) ?? [];
-          // Preserve the behavior the deleted scopes_update route had —
-          // keep the Session's scope current.
-          await db.session.updateMany({
-            where: { shop: event.shop },
-            data: { scope: current.toString() },
-          });
-          // WR-09: the registry renders Store.grantedScopes as authoritative, but the
-          // enable-* handlers write it from a CLIENT-supplied string. This webhook is
-          // Shopify's authoritative scope-change signal — reconcile the persisted grant
-          // state to it so the registry converges to the real grants regardless of what
-          // the client round-tripped (or forged). Client submit is the trigger; this is
-          // the source of truth. updateMany is a no-op if the store row is absent.
-          await db.store.updateMany({
-            where: { shopifyDomain: event.shop },
-            data: { grantedScopes: current.join(",") },
-          });
-          break;
-        }
-        case "CUSTOMERS_DATA_REQUEST":
-        case "CUSTOMERS_REDACT":
-        case "SHOP_REDACT":
-          await handleComplianceEvent(event.topic, event.shop, event.payload);
-          break;
-        default:
-          break;
-      }
+      await applyWebhookEvent(event);
     } catch (err) {
       const tries = (attempts.get(event.id) ?? 0) + 1;
       attempts.set(event.id, tries);

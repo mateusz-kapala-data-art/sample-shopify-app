@@ -1,12 +1,13 @@
 // [DEMO 2] [SLIDE D1] Single hardened webhook endpoint — all topics + compliance_topics
-// route here (HOOK-01..06). HMAC-verify -> idempotent insert -> return 200
-// immediately. Application of the event to the registry is deferred to the
-// interval worker (app/jobs/processWebhooks.ts) so this action stays fast.
+// route here (HOOK-01..06). HMAC-verify -> idempotent insert -> apply to the registry
+// -> return 200. On Vercel (serverless) there is no background worker, so the event is
+// applied INLINE here via applyWebhookEvent(); the local interval worker is a backstop.
 import type { ActionFunctionArgs } from "react-router";
 import { Prisma } from "@prisma/client";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { verifyWebhookHmac } from "../lib/webhookSecrets.server";
+import { applyWebhookEvent } from "../jobs/processWebhooks";
 
 // Shopify sends topics in slash form (X-Shopify-Topic: app/uninstalled); the SDK
 // normalizes to SCREAMING_SNAKE_CASE (APP_UNINSTALLED), which the worker switches
@@ -53,25 +54,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
+  const payloadJson = JSON.stringify(payload);
+  let isNewDelivery = true;
   try {
     await db.webhookEvent.create({
       data: {
         id: webhookId, // Shopify's own idempotency key — unique constraint enforces dedupe
         topic,
         shop,
-        payload: JSON.stringify(payload),
+        payload: payloadJson,
         receivedAt: new Date(),
       },
     });
   } catch (err) {
     // P2002 = unique constraint violation = duplicate delivery. Shopify webhooks
     // are at-least-once, so a repeat delivery is expected and not an error (HOOK-02).
-    if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      isNewDelivery = false; // already recorded (and applied) — don't apply twice
+    } else {
       throw err;
     }
   }
 
-  // HOOK-03: return 200 immediately — no Store mutations here. The interval
-  // worker (app/jobs/processWebhooks.ts) applies the event asynchronously.
+  // Apply the event to the registry inline (serverless has no background worker), then
+  // mark it processed. A failure here leaves processedAt null so the local worker (dev)
+  // or a redelivery can reapply it — the response is still 200 so Shopify doesn't retry
+  // a delivery we've durably recorded.
+  if (isNewDelivery) {
+    try {
+      await applyWebhookEvent({ id: webhookId, topic, shop, payload: payloadJson });
+      await db.webhookEvent.update({
+        where: { id: webhookId },
+        data: { processedAt: new Date() },
+      });
+    } catch (err) {
+      console.error(`[webhooks] inline apply failed for ${topic} (${shop}) — left pending`, err);
+    }
+  }
+
+  // HOOK-03: acknowledge fast so Shopify doesn't retry.
   return new Response();
 };

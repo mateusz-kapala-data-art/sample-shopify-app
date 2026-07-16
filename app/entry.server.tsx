@@ -9,11 +9,14 @@ import { startWebhookWorker } from "./jobs/processWebhooks";
 
 export const streamTimeout = 5000;
 
-// [SLIDE D1] Start the WebhookEvent-draining interval worker once, at server
-// boot. Module scope means this runs a single time per server process; the
-// globalThis guard inside startWebhookWorker prevents duplicate intervals
+// [SLIDE D1] Start the WebhookEvent-draining interval worker once, at server boot — but
+// only where a long-lived process exists. On Vercel (serverless) there is no persistent
+// process for setInterval to run in, so webhooks.tsx applies events inline instead; the
+// worker here is the LOCAL backstop. The globalThis guard prevents duplicate intervals
 // under Vite HMR. Never call this per-request.
-startWebhookWorker();
+if (!process.env.VERCEL) {
+  startWebhookWorker();
+}
 
 export default async function handleRequest(
   request: Request,

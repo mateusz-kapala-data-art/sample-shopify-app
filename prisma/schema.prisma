@@ -8,13 +8,13 @@ generator client {
 // Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
-// NOTE (DATA-03): SQLite is used deliberately to keep this demo self-contained and
-// dependency-free on stage. For production, swap the datasource provider to
-// "postgresql" and point `url` at a real Postgres connection string — the
-// schema itself (models below) does not need to change.
+// NOTE (DATA-03): hosted on Vercel (serverless) → Postgres. Point DATABASE_URL at a
+// hosted Postgres (Neon/Supabase free tier). Use the POOLED connection string on
+// serverless so cold starts don't exhaust connections. Local dev connects to the same
+// DATABASE_URL (a Neon branch or a local Postgres) — the app no longer uses SQLite.
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
