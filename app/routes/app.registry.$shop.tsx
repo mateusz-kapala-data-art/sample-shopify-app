@@ -80,21 +80,29 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   if (intent === "enable-module") {
+    // updateMany, not update: update() throws Prisma P2025 if the registry row is
+    // missing, surfacing a raw error banner instead of an honest "not in registry".
     const granted = String(form.get("granted") || "");
-    await db.store.update({
+    const updated = await db.store.updateMany({
       where: { shopifyDomain: session.shop },
       data: { shippingModule: true, grantedScopes: granted },
     });
+    if (updated.count === 0) {
+      return { ok: false, intent, error: "Store not in registry — nothing to update." };
+    }
     return { ok: true, intent };
   }
 
   if (intent === "enable-theme-module") {
     // SHOW-10: same grant-then-persist shape as enable-module, gated on write_themes.
     const granted = String(form.get("granted") || "");
-    await db.store.update({
+    const updated = await db.store.updateMany({
       where: { shopifyDomain: session.shop },
       data: { themeModule: true, grantedScopes: granted },
     });
+    if (updated.count === 0) {
+      return { ok: false, intent, error: "Store not in registry — nothing to update." };
+    }
     return { ok: true, intent };
   }
 

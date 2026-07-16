@@ -67,10 +67,20 @@ export const run: RunFn = async (admin: AdminApiContext, shop, _form) => {
   }
   const mockResponse: any = text ? JSON.parse(text) : {};
 
-  await db.store.update({
+  // updateMany, not update: update() throws Prisma P2025 when no row matches (a wiped
+  // dev.sqlite, a store installed before the registry existed, a failed afterAuth), and
+  // that raw message would end the demo in a critical banner. The push DID land — record
+  // it if we can, but a missing registry row is a note, not a crash.
+  const updated = await db.store.updateMany({
     where: { shopifyDomain: shop },
     data: { netsuiteLastPush: new Date() },
   });
+  if (updated.count === 0) {
+    return {
+      data: { order, mockResponse },
+      error: "Store not in registry — push sent but not recorded.",
+    };
+  }
 
   return { data: { order, mockResponse }, extensions: body.extensions };
 };

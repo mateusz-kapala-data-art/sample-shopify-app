@@ -67,11 +67,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (intent === "enable-module") {
     // MOD-02: the client already completed the App Bridge grant; persist the result
     // for the CURRENT shop. Declines never reach here (handled client-side).
+    // updateMany, not update: update() throws Prisma P2025 if the registry row is
+    // missing, surfacing a raw error banner instead of an honest "not in registry".
     const granted = String(form.get("granted") || "");
-    await db.store.update({
+    const updated = await db.store.updateMany({
       where: { shopifyDomain: session.shop },
       data: { shippingModule: true, grantedScopes: granted },
     });
+    if (updated.count === 0) {
+      return { ok: false, intent, error: "Store not in registry — nothing to update." };
+    }
     return { ok: true, intent };
   }
 
@@ -79,10 +84,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // SHOW-10: same grant-then-persist shape as enable-module, gated on write_themes
     // instead of write_shipping — the client already completed the App Bridge grant.
     const granted = String(form.get("granted") || "");
-    await db.store.update({
+    const updated = await db.store.updateMany({
       where: { shopifyDomain: session.shop },
       data: { themeModule: true, grantedScopes: granted },
     });
+    if (updated.count === 0) {
+      return { ok: false, intent, error: "Store not in registry — nothing to update." };
+    }
     return { ok: true, intent };
   }
 
