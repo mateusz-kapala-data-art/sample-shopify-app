@@ -1,14 +1,17 @@
 // [DEMOS 3–4] [SECTION F/G] Versions & releases — a LIVE, read-only mirror of the CLI
 // version history. The loader runs `shopify app versions list` at request time (see
-// app/lib/appVersions.server.ts), so a `shopify app deploy` on stage appears here the
-// moment the presenter opens or refreshes this route. Deploys/rollbacks still happen in
-// the CLI — this page only observes them; it never mutates anything.
+// app/lib/appVersions.server.ts); the page then re-runs it on a short interval, so a
+// `shopify app deploy` on stage appears in the table on its own — no button to press.
+// Deploys/rollbacks still happen in the CLI — this page only observes them.
+import { useEffect, useRef } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { DeckAnchor } from "../lib/presentation";
 import { getAppVersions } from "../lib/appVersions.server";
+
+const POLL_MS = 10_000;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -19,38 +22,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function Versions() {
   const { versions, source } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
-  const refreshing = revalidator.state !== "idle";
+  // Keep a live handle to the revalidator so the interval never captures a stale one.
+  const revalidatorRef = useRef(revalidator);
+  revalidatorRef.current = revalidator;
+
+  // Auto-refresh: re-run the loader (→ re-run the CLI) on an interval while this route is
+  // open, so a just-deployed version shows up automatically. Idle-guarded so polls never
+  // overlap; skipped while the tab is hidden so we don't spawn the CLI needlessly.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (
+        document.visibilityState === "visible" &&
+        revalidatorRef.current.state === "idle"
+      ) {
+        revalidatorRef.current.revalidate();
+      }
+    }, POLL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const updating = revalidator.state !== "idle";
 
   return (
     <s-page heading="Versions & releases">
       <DeckAnchor>Versions & releases · Demos 3–4 · deck section F/G</DeckAnchor>
 
-      {/* Re-runs the loader → re-runs the CLI, so a just-deployed version shows up live. */}
-      <s-button
-        slot="primary-action"
-        onClick={() => revalidator.revalidate()}
-        {...(refreshing ? { loading: true } : {})}
-      >
-        Refresh from CLI
-      </s-button>
-
       <s-banner tone="info">
         <s-paragraph>
           Deploys and rollbacks happen in the CLI — this page only observes. Deploy a new
-          version, then hit “Refresh from CLI” to watch it appear.
+          version and it appears here on its own within a few seconds.
         </s-paragraph>
       </s-banner>
 
       <s-section heading="App versions">
         <s-stack direction="block" gap="base">
-          {/* Honest source indicator: live from the CLI, or the captured fallback snapshot. */}
-          {source === "live" ? (
-            <s-badge tone="success">live · shopify app versions list</s-badge>
-          ) : (
-            <s-badge tone="neutral">
-              captured snapshot — CLI not reachable from the server
-            </s-badge>
-          )}
+          {/* Honest source + a quiet auto-update indicator. */}
+          <s-stack direction="inline" gap="base" alignItems="center">
+            {source === "live" ? (
+              <s-badge tone="success">live · shopify app versions list</s-badge>
+            ) : (
+              <s-badge tone="neutral">
+                captured snapshot — CLI not reachable from the server
+              </s-badge>
+            )}
+            <s-text color="subdued">
+              {updating ? "updating…" : `auto-updating every ${POLL_MS / 1000}s`}
+            </s-text>
+          </s-stack>
 
           {versions.length === 0 ? (
             <s-text color="subdued">No versions yet — run `shopify app deploy`.</s-text>
