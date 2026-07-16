@@ -1,8 +1,14 @@
 [
   {
+    "versionTag": "platform-app-5",
+    "createdAt": "2026-07-16 13:55:44",
+    "status": "active",
+    "message": ""
+  },
+  {
     "versionTag": "platform-app-4",
     "createdAt": "2026-07-16 13:01:19",
-    "status": "active",
+    "status": "inactive",
     "message": ""
   },
   {
