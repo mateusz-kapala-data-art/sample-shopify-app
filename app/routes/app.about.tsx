@@ -12,7 +12,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function About() {
   return (
-    <s-page heading="About this demo">
+    <s-page heading="About this demo" inlineSize="small">
       <DeckAnchor>About · session-only</DeckAnchor>
 
       <s-section heading="About this demo">

@@ -30,7 +30,7 @@ export default function WebhookLog() {
   const { events } = useLoaderData<typeof loader>();
 
   return (
-    <s-page heading="Webhook log">
+    <s-page heading="Webhook log" inlineSize="large">
       <DeckAnchor>Webhook log · Demo 1/5 · deck section D (slide D3)</DeckAnchor>
 
       <s-section heading="Recent deliveries">

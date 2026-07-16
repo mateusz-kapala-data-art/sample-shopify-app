@@ -44,7 +44,7 @@ export default function Versions() {
   const updating = revalidator.state !== "idle";
 
   return (
-    <s-page heading="Versions & releases">
+    <s-page heading="Versions & releases" inlineSize="large">
       <DeckAnchor>Versions & releases · Demos 3–4 · deck section F/G</DeckAnchor>
 
       <s-banner tone="info">

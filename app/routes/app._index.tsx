@@ -139,7 +139,7 @@ export default function Registry() {
   );
 
   return (
-    <s-page heading="Registry">
+    <s-page heading="Registry" inlineSize="large">
       <DeckAnchor>Registry · Demo 5 · deck section D (slide D4)</DeckAnchor>
 
       {/* UI-03 / SEC-04: degraded-mode banner */}
