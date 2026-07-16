@@ -18,16 +18,18 @@ api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks"
-  topics = [ "app/uninstalled", "shop/update", "app/scopes_update", "bulk_operations/finish" ]
+  topics = [ "app/uninstalled", "shop/update", "app/scopes_update" ]
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
-# [SLIDE D1] access scopes — read_themes required; write_shipping/write_themes/write_products/read_orders
-# optional (Phase 3 MOD-01, Phase 5 SHOW-01: write_products demoted to optional for the runtime
-# scope-request demo, read_orders added optional for SHOW-08)
+# [SLIDE D1] access scopes (spec §3) — read-mostly: read_products + read_themes required.
+# write_shipping stays optional for the Phase 3 runtime-scope toggle (see
+# .planning/phases/05-tier-2-feature-showcase/05-SPEC-GAP.md §D — open decision to repoint
+# it to read_locales). Phase 5's write_products/write_metaobjects/write_themes/read_orders
+# were removed with the showcase backout, and app/scopes_update stays for the runtime grant.
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_metaobjects,write_metaobject_definitions,read_themes"
-optional_scopes = [ "write_shipping", "write_themes", "write_products", "read_orders" ]
+scopes = "read_products,read_themes"
+optional_scopes = [ "write_shipping" ]
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
