@@ -31,3 +31,8 @@ database.sqlite
 .react-router/
 # GSD planning docs (local-only)
 .planning/
+
+# Local / other-assistant configs (personal, not shared)
+.claude/settings.local.json
+.cursor/
+.gemini/
