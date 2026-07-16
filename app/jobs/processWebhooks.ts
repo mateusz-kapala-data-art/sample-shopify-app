@@ -6,6 +6,7 @@
 import db from "../db.server";
 import { handleComplianceEvent } from "../lib/compliance.server";
 import { isDegraded, evictAdminToken } from "../lib/tokenService.server";
+import { resyncStore } from "../lib/registrySync.server";
 
 // globalThis-guarded singleton — same idiom as app/db.server.ts's Prisma
 // client guard — so Vite dev-server HMR never spawns a second interval.
@@ -71,6 +72,13 @@ export async function applyWebhookEvent(event: {
         where: { shopifyDomain: event.shop },
         data: { grantedScopes: current.join(",") },
       });
+      break;
+    }
+    case "THEMES_UPDATE": {
+      // A theme rename fires themes/update (not on file edits). Re-sync the shop so the
+      // registry's theme name updates push-style — no manual "Re-sync" click needed. Uses
+      // the client-credentials token (resyncStore), same as the manual re-sync path.
+      await resyncStore(event.shop);
       break;
     }
     case "CUSTOMERS_DATA_REQUEST":
