@@ -181,6 +181,9 @@ function DetailPanel({
 }) {
   const fetcher = useFetcher<typeof action>();
   const [declined, setDeclined] = useState(false);
+  // "App Bridge broke" is a different story from "you declined" — keep it separate
+  // so a failed scope request surfaces instead of silently doing nothing (WR-07).
+  const [scopeError, setScopeError] = useState<string | null>(null);
   // Remembers the bulk operation this panel started, so "Check status" asks about
   // that export and not the newest finish webhook on the shop.
   const [startedOpId, setStartedOpId] = useState<string | null>(null);
@@ -210,8 +213,14 @@ function DetailPanel({
 
   const runCard = async (op?: "start" | "status") => {
     setDeclined(false);
+    setScopeError(null);
     if (card.scope) {
-      const { granted } = await ensureScope(shopify, card.scope);
+      const { granted, error } = await ensureScope(shopify, card.scope);
+      if (error) {
+        // App Bridge / network failure — not a decline. Surface it distinctly.
+        setScopeError(error);
+        return;
+      }
       if (!granted) {
         // MOD-02 precedent: decline is a state, not an error.
         setDeclined(true);
@@ -275,6 +284,15 @@ function DetailPanel({
             <s-paragraph>
               {card.scope} was declined. You can keep using the rest of the console
               and grant it later.
+            </s-paragraph>
+          </s-banner>
+        )}
+
+        {scopeError && (
+          <s-banner tone="critical" heading="Permission request failed">
+            <s-paragraph>
+              Couldn&apos;t reach the App Bridge scopes API ({scopeError}). This is a
+              connection problem, not a decline — try again.
             </s-paragraph>
           </s-banner>
         )}

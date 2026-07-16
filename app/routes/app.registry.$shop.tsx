@@ -147,6 +147,9 @@ export default function StoreDetail() {
   const [moduleDeclined, setModuleDeclined] = useState(false);
   const themeModuleFetcher = useFetcher<typeof action>();
   const [themeModuleDeclined, setThemeModuleDeclined] = useState(false);
+  // Distinct from a decline: an App Bridge / network failure must not leave the
+  // button silently doing nothing (WR-07).
+  const [scopeError, setScopeError] = useState<string | null>(null);
 
   const isCurrent = store.shopifyDomain === currentShop;
   const scopes = store.grantedScopes
@@ -155,8 +158,14 @@ export default function StoreDetail() {
 
   const enableShippingModule = async () => {
     setModuleDeclined(false);
-    const { granted, grantedScopes } = await ensureScope(shopify, "write_shipping");
-    if (granted) {
+    setScopeError(null);
+    const { granted, grantedScopes, error } = await ensureScope(
+      shopify,
+      "write_shipping",
+    );
+    if (error) {
+      setScopeError(error);
+    } else if (granted) {
       moduleFetcher.submit(
         { intent: "enable-module", granted: grantedScopes.join(",") },
         { method: "post" },
@@ -170,8 +179,14 @@ export default function StoreDetail() {
   // SHOW-10: same shape as enableShippingModule, gated on write_themes.
   const enableThemeModule = async () => {
     setThemeModuleDeclined(false);
-    const { granted, grantedScopes } = await ensureScope(shopify, "write_themes");
-    if (granted) {
+    setScopeError(null);
+    const { granted, grantedScopes, error } = await ensureScope(
+      shopify,
+      "write_themes",
+    );
+    if (error) {
+      setScopeError(error);
+    } else if (granted) {
       themeModuleFetcher.submit(
         { intent: "enable-theme-module", granted: grantedScopes.join(",") },
         { method: "post" },
@@ -214,6 +229,16 @@ export default function StoreDetail() {
           <s-paragraph>
             The write_themes scope was declined — the theme module stays off and the
             app keeps working.
+          </s-paragraph>
+        </s-banner>
+      )}
+
+      {/* WR-07: App Bridge / network failure — distinct from a decline */}
+      {scopeError && (
+        <s-banner tone="critical" heading="Permission request failed">
+          <s-paragraph>
+            Couldn&apos;t reach the App Bridge scopes API ({scopeError}). This is a
+            connection problem, not a decline — try again.
           </s-paragraph>
         </s-banner>
       )}
