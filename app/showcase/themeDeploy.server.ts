@@ -22,7 +22,7 @@ export const MAIN_THEME_QUERY = `#graphql
 export const THEME_DUPLICATE_MUTATION = `#graphql
   mutation duplicateSonyPlatformTheme($id: ID!, $name: String!) {
     themeDuplicate(id: $id, name: $name) {
-      theme {
+      newTheme {
         id
         name
       }
@@ -98,7 +98,7 @@ export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
     };
   }
 
-  const duplicatedThemeId = duplicateBody?.data?.themeDuplicate?.theme?.id;
+  const duplicatedThemeId = duplicateBody?.data?.themeDuplicate?.newTheme?.id;
   if (!duplicatedThemeId) {
     return { error: "themeDuplicate returned no theme id." };
   }
