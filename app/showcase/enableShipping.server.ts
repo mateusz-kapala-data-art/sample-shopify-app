@@ -40,7 +40,16 @@ export const card: ActionCard = {
 export const run: RunFn = async (admin: AdminApiContext, _shop, _form) => {
   // Trusted env, not request input — the whole point of this callback URL is
   // that it is our own, fixed, public route (Pitfall 7 / T-05.07-03).
-  const callbackUrl = `${process.env.SHOPIFY_APP_URL ?? ""}/carrier.rates`;
+  // Fail loudly if it is unset: a `?? ""` fallback would register the relative
+  // string "/carrier.rates", which Shopify rejects as an opaque userError far from
+  // the real cause (missing env), indistinguishable from a Shopify-side failure.
+  const appUrl = process.env.SHOPIFY_APP_URL;
+  if (!appUrl) {
+    return {
+      error: "SHOPIFY_APP_URL is not set — cannot build the carrier callback URL.",
+    };
+  }
+  const callbackUrl = `${appUrl.replace(/\/$/, "")}/carrier.rates`;
 
   const response = await admin.graphql(ENABLE_SHIPPING_MUTATION, {
     variables: {
