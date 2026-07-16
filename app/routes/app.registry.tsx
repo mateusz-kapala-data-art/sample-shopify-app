@@ -38,8 +38,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       shippingModule: s.shippingModule,
       dataConnected: s.dataConnected,
       fansifterConnected: s.fansifterConnected,
-      themeModule: s.themeModule,
-      netsuiteLastPush: s.netsuiteLastPush ? s.netsuiteLastPush.toISOString() : null,
       lastSyncedAt: s.lastSyncedAt ? s.lastSyncedAt.toISOString() : null,
     })),
   };
@@ -82,20 +80,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const updated = await db.store.updateMany({
       where: { shopifyDomain: session.shop },
       data: { shippingModule: true, grantedScopes: granted },
-    });
-    if (updated.count === 0) {
-      return { ok: false, intent, error: "Store not in registry — nothing to update." };
-    }
-    return { ok: true, intent };
-  }
-
-  if (intent === "enable-theme-module") {
-    // SHOW-10: same grant-then-persist shape as enable-module, gated on write_themes
-    // instead of write_shipping — the client already completed the App Bridge grant.
-    const granted = String(form.get("granted") || "");
-    const updated = await db.store.updateMany({
-      where: { shopifyDomain: session.shop },
-      data: { themeModule: true, grantedScopes: granted },
     });
     if (updated.count === 0) {
       return { ok: false, intent, error: "Store not in registry — nothing to update." };
@@ -174,9 +158,7 @@ function ResyncButton({ shop }: { shop: string }) {
 // The full list lives on the per-store detail page — the table stays scannable.
 function ScopeSummary({ scopes }: { scopes: string[] }) {
   if (scopes.length === 0) return <s-text color="subdued">—</s-text>;
-  const optional = scopes.filter(
-    (s) => s === "write_shipping" || s === "write_themes",
-  );
+  const optional = scopes.filter((s) => s === "write_shipping");
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
       {optional.map((s) => (
@@ -194,18 +176,15 @@ function ModuleChips({
   shipping,
   data,
   fansifter,
-  theme,
 }: {
   shipping: boolean;
   data: boolean;
   fansifter: boolean;
-  theme: boolean;
 }) {
   const on = [
     shipping ? "Shipping" : null,
     data ? "Data" : null,
     fansifter ? "Fansifter" : null,
-    theme ? "Theme" : null,
   ].filter((m): m is string => m !== null);
   if (on.length === 0) return <s-text color="subdued">—</s-text>;
   return (
@@ -278,8 +257,6 @@ export default function Registry() {
   const shopify = useAppBridge();
   const moduleFetcher = useFetcher<typeof action>();
   const [moduleDeclined, setModuleDeclined] = useState(false);
-  const themeModuleFetcher = useFetcher<typeof action>();
-  const [themeModuleDeclined, setThemeModuleDeclined] = useState(false);
   // Distinct from a decline: an App Bridge / network failure while requesting a scope
   // must not leave the button silently doing nothing (WR-07).
   const [scopeError, setScopeError] = useState<string | null>(null);
@@ -306,30 +283,8 @@ export default function Registry() {
     }
   };
 
-  // SHOW-10: same shape as enableShippingModule, gated on write_themes.
-  const enableThemeModule = async () => {
-    setThemeModuleDeclined(false);
-    setScopeError(null);
-    const { granted, grantedScopes, error } = await ensureScope(
-      shopify,
-      "write_themes",
-    );
-    if (error) {
-      setScopeError(error);
-    } else if (granted) {
-      themeModuleFetcher.submit(
-        { intent: "enable-theme-module", granted: grantedScopes.join(",") },
-        { method: "post" },
-      );
-      shopify.toast.show("Theme module enabled");
-    } else {
-      setThemeModuleDeclined(true);
-    }
-  };
-
   const currentRow = stores.find((s) => s.shopifyDomain === currentShop);
   const moduleOn = currentRow?.shippingModule ?? false;
-  const themeModuleOn = currentRow?.themeModule ?? false;
   const activeCount = stores.filter((s) => s.status === "active").length;
   const moduleCount = stores.filter((s) => s.shippingModule).length;
 
@@ -357,13 +312,6 @@ export default function Registry() {
       >
         {moduleOn ? "Shipping module enabled" : "Enable shipping module"}
       </s-button>
-      <s-button
-        slot="secondary-actions"
-        onClick={enableThemeModule}
-        {...(themeModuleOn ? { disabled: true } : {})}
-      >
-        {themeModuleOn ? "Theme module enabled" : "Enable theme module"}
-      </s-button>
 
       {/* UI-03 / SEC-04: degraded-mode banner */}
       {degraded && (
@@ -381,16 +329,6 @@ export default function Registry() {
           <s-paragraph>
             The shipping module needs the write_shipping scope, which was declined.
             You can keep using the rest of the app and enable it later.
-          </s-paragraph>
-        </s-banner>
-      )}
-
-      {/* SHOW-10: same decline-is-a-state precedent, gated on write_themes */}
-      {themeModuleDeclined && (
-        <s-banner tone="warning" heading="Module unavailable">
-          <s-paragraph>
-            The theme module needs the write_themes scope, which was declined. You
-            can keep using the rest of the app and enable it later.
           </s-paragraph>
         </s-banner>
       )}
@@ -451,7 +389,6 @@ export default function Registry() {
               <s-table-header>Granted scopes</s-table-header>
               <s-table-header>Modules</s-table-header>
               <s-table-header>Last synced</s-table-header>
-              <s-table-header>NetSuite last push</s-table-header>
               <s-table-header>Actions</s-table-header>
             </s-table-header-row>
             <s-table-body>
@@ -498,14 +435,10 @@ export default function Registry() {
                         shipping={s.shippingModule}
                         data={s.dataConnected}
                         fansifter={s.fansifterConnected}
-                        theme={s.themeModule}
                       />
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">{formatSynced(s.lastSyncedAt)}</s-text>
-                    </s-table-cell>
-                    <s-table-cell>
-                      <s-text color="subdued">{formatSynced(s.netsuiteLastPush)}</s-text>
                     </s-table-cell>
                     <s-table-cell>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
