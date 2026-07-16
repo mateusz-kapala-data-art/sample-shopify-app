@@ -50,9 +50,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = String(form.get("intent"));
 
+  // [DEMO SCOPE] Single-org platform app: every installed store belongs to Sony, so
+  // any authenticated operator may act on any registry row (resync / toggle-connector
+  // take the target shop from client input). session.shop is NOT an authorization
+  // boundary here. A multi-tenant deployment MUST gate these mutations on an operator
+  // role before acting on a shop the caller doesn't own.
+
   if (intent === "resync") {
     // UI-02: re-sync uses the client-credentials token service, not the session token.
     const shop = String(form.get("shop") || session.shop);
+    // Validate the target row exists before acting (toggle-connector already does).
+    const store = await db.store.findUnique({ where: { shopifyDomain: shop } });
+    if (!store) return { ok: false, intent, shop, error: "Store not found" };
     try {
       await resyncStore(shop);
       return { ok: true, intent, shop };

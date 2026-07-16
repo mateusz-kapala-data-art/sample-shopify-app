@@ -56,7 +56,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = String(form.get("intent"));
 
+  // [DEMO SCOPE] Single-org platform app: every installed store belongs to Sony, so
+  // any authenticated operator may act on any registry row (the target shop comes from
+  // the route param). session.shop is NOT an authorization boundary here. A multi-tenant
+  // deployment MUST gate these mutations on an operator role.
+
   if (intent === "resync") {
+    // Validate the target row exists before acting on it.
+    const store = await db.store.findUnique({ where: { shopifyDomain: shop } });
+    if (!store) return { ok: false, intent, error: "Store not found" };
     try {
       await resyncStore(shop);
       return { ok: true, intent };
