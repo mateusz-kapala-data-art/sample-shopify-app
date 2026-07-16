@@ -1,5 +1,0 @@
-name = "mock-services"
-roles = ["background"]
-
-[commands]
-dev = "node server.js"
