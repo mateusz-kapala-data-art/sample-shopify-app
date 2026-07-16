@@ -4,12 +4,11 @@
 # lives only on the Dev Dashboard record, not here.
 client_id = "08ec5164837e2e772360d9bb0c0572a0"
 name = "Platform App"
-application_url = "https://example.com"
+application_url = "https://sample-shopify-app-fawn.vercel.app"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 # [SLIDE D1] all webhook topics -> /webhooks (HOOK-01..06). Single URI: React
 # Router cannot route two files to one URI, so every topic + compliance topic
@@ -34,4 +33,4 @@ scopes = "read_products,read_themes"
 optional_scopes = [ "read_locales" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://sample-shopify-app-fawn.vercel.app/api/auth" ]
