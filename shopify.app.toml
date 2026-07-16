@@ -21,7 +21,15 @@ api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks"
-  topics = [ "app/uninstalled", "shop/update", "app/scopes_update", "themes/update" ]
+  # Record a broad set of store events so the Webhook log shows real activity. Limited to
+  # what read_products + read_themes (+ app-level topics) allow — orders/customers/inventory
+  # webhooks would each need their own scope (and orders/customers are protected data).
+  topics = [
+    "app/uninstalled", "app/scopes_update", "shop/update",
+    "themes/create", "themes/update", "themes/publish", "themes/delete",
+    "products/create", "products/update", "products/delete",
+    "collections/create", "collections/update", "collections/delete"
+  ]
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 # [SLIDE D1] access scopes (spec §3) — read-mostly: read_products + read_themes required.
