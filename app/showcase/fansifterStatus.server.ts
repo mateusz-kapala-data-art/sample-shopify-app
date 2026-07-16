@@ -29,13 +29,27 @@ export const run: RunFn = async (_admin, shop, _form) => {
   const response = await fetch(
     `${MOCK_SERVICES_URL}/fansifter/status/${encodeURIComponent(shop)}`,
   );
+  // A 404 from the mock's default branch returns an empty body — without this check
+  // response.json() throws a raw parse error instead of a legible "is mock running?".
+  if (!response.ok) {
+    return {
+      error: `Fansifter mock returned ${response.status} — is mock-services running?`,
+    };
+  }
   const body: any = await response.json();
+
+  // Require the field to actually be present: `!!body.connected` on a missing field
+  // silently coerces to false and DISCONNECTS both modules — a registry state change
+  // derived from a malformed response, which is exactly the "no fakes" line to hold.
+  if (typeof body.connected !== "boolean") {
+    return { data: body, error: "Malformed status response — flags unchanged." };
+  }
 
   await db.store.update({
     where: { shopifyDomain: shop },
     data: {
-      fansifterConnected: !!body.connected,
-      dataConnected: !!body.connected,
+      fansifterConnected: body.connected,
+      dataConnected: body.connected,
     },
   });
 
