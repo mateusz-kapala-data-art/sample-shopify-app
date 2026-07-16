@@ -13,7 +13,9 @@ import type { ActionFunctionArgs } from "react-router";
 export const action = async ({ request }: ActionFunctionArgs) => {
   // rate.origin / rate.destination / rate.items / rate.currency are ignored —
   // the response is identical regardless of input, per RESEARCH.md Code Examples.
-  await request.json();
+  // Parsed only to drain the stream; a malformed body must never 500 this public,
+  // unauthenticated route (the parse serves no other purpose), so swallow failures.
+  await request.json().catch(() => null);
 
   return Response.json({
     rates: [
