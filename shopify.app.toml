@@ -1,7 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
+# [ADDENDUM A1] App name renders as "Platform App" everywhere; the "(Demo)" suffix
+# lives only on the Dev Dashboard record, not here.
 client_id = "08ec5164837e2e772360d9bb0c0572a0"
-name = "sample-app"
+name = "Platform App"
 application_url = "https://example.com"
 embedded = true
 
@@ -22,14 +24,14 @@ api_version = "2026-07"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 # [SLIDE D1] access scopes (spec §3) — read-mostly: read_products + read_themes required.
-# write_shipping stays optional for the Phase 3 runtime-scope toggle (see
-# .planning/phases/05-tier-2-feature-showcase/05-SPEC-GAP.md §D — open decision to repoint
-# it to read_locales). Phase 5's write_products/write_metaobjects/write_themes/read_orders
-# were removed with the showcase backout, and app/scopes_update stays for the runtime grant.
+# read_locales is the single optional scope, requested at runtime on the Permissions
+# route (Demo 6) via the App Bridge scopes API; app/scopes_update fires on the grant and
+# the worker reconciles Store.grantedScopes. (read_content stays in a branch as the Demo 6
+# re-approval scope.) Phase 5's write_* / metaobject scopes were removed with the showcase.
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,read_themes"
-optional_scopes = [ "write_shipping" ]
+optional_scopes = [ "read_locales" ]
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
