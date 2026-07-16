@@ -71,11 +71,21 @@ async function drainQueue() {
         case "APP_SCOPES_UPDATE": {
           const payload = JSON.parse(event.payload);
           const current = (payload.current as string[]) ?? [];
-          // Preserve the behavior the deleted scopes_update route had — no
-          // Store change required in Phase 1, only the Session's scope.
+          // Preserve the behavior the deleted scopes_update route had —
+          // keep the Session's scope current.
           await db.session.updateMany({
             where: { shop: event.shop },
             data: { scope: current.toString() },
+          });
+          // WR-09: the registry renders Store.grantedScopes as authoritative, but the
+          // enable-* handlers write it from a CLIENT-supplied string. This webhook is
+          // Shopify's authoritative scope-change signal — reconcile the persisted grant
+          // state to it so the registry converges to the real grants regardless of what
+          // the client round-tripped (or forged). Client submit is the trigger; this is
+          // the source of truth. updateMany is a no-op if the store row is absent.
+          await db.store.updateMany({
+            where: { shopifyDomain: event.shop },
+            data: { grantedScopes: current.join(",") },
           });
           break;
         }
