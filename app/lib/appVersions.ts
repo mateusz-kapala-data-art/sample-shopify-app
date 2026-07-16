@@ -1,36 +1,21 @@
-// [DEMOS 3–4] Captured `shopify app versions list` output — the honest "rehearsed
-// output captured at deploy time" fallback (deck section F/G). There is no live
-// versions API call on stage; deploys/rollbacks happen in the CLI, and this static
-// mirror lets the Versions route observe them without a tunnel. Dates are captured
-// literals, never Date.now()/new Date() — the row order tells the demo story.
+// [DEMO 3-4] [DECK F/G] REAL app version history — the captured output of
+// `shopify app versions list --json`, never hand-authored (spec's "no fakes").
+// Refresh before a rehearsal/session so the list reflects the latest deploys:
+//
+//   shopify app versions list --json \
+//     | node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync(0,'utf8'));\
+//       fs.writeFileSync('app/data/app-versions.json',JSON.stringify(\
+//       r.map(v=>({versionTag:v.versionTag,createdAt:v.createdAt,status:v.status,\
+//       message:v.message||''})),null,2)+'\n')"
+//
+// (Internal createdBy/versionId GIDs from the CLI are dropped — only display fields.)
+import versions from "../data/app-versions.json";
+
 export type AppVersion = {
-  version: string;
+  versionTag: string;
   createdAt: string;
+  status: string;
   message: string;
-  released: boolean;
-  scopeChange: boolean;
 };
 
-export const APP_VERSIONS: AppVersion[] = [
-  {
-    version: "platform-app-1",
-    createdAt: "2026-07-10",
-    message: "Baseline: registry + webhooks",
-    released: true,
-    scopeChange: false,
-  },
-  {
-    version: "platform-app-2",
-    createdAt: "2026-07-12",
-    message: "platform-badge copy v2",
-    released: true,
-    scopeChange: false,
-  },
-  {
-    version: "platform-app-3",
-    createdAt: "2026-07-14",
-    message: "Add read_content required scope",
-    released: false,
-    scopeChange: true,
-  },
-];
+export const APP_VERSIONS: AppVersion[] = versions;

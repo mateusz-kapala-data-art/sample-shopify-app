@@ -1,7 +1,8 @@
 // [DEMOS 3–4] [SECTION F/G] Versions & releases — a read-only mirror of the CLI
 // version history. Deploys and rollbacks happen in `shopify app versions` /
-// `shopify app deploy`; this page only observes the captured output (app/lib/
-// appVersions.ts), so nothing here reaches out to a live API or mutates anything.
+// `shopify app deploy`; this page only observes the REAL captured output
+// (app/data/app-versions.json via app/lib/appVersions.ts — regenerate before the
+// session), so nothing here reaches out to a live API or mutates anything.
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -37,27 +38,21 @@ export default function Versions() {
             <s-table-header-row>
               <s-table-header listSlot="primary">Version</s-table-header>
               <s-table-header>Created</s-table-header>
+              <s-table-header>Status</s-table-header>
               <s-table-header>Message</s-table-header>
-              <s-table-header>Released</s-table-header>
-              <s-table-header>Scope change</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {versions.map((v) => (
-                <s-table-row key={v.version}>
-                  <s-table-cell>{v.version}</s-table-cell>
+                <s-table-row key={v.versionTag}>
+                  <s-table-cell>{v.versionTag}</s-table-cell>
                   <s-table-cell>{v.createdAt}</s-table-cell>
-                  <s-table-cell>{v.message}</s-table-cell>
                   <s-table-cell>
-                    <s-badge tone={v.released ? "success" : "neutral"}>
-                      {v.released ? "released" : "unreleased"}
+                    <s-badge tone={v.status === "active" ? "success" : "neutral"}>
+                      {v.status}
                     </s-badge>
                   </s-table-cell>
                   <s-table-cell>
-                    {v.scopeChange ? (
-                      <s-badge tone="warning">scope change</s-badge>
-                    ) : (
-                      <s-text color="subdued">—</s-text>
-                    )}
+                    {v.message ? v.message : <s-text color="subdued">—</s-text>}
                   </s-table-cell>
                 </s-table-row>
               ))}
