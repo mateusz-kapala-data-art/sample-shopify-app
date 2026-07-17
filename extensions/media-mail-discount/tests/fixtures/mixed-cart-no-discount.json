@@ -1,0 +1,32 @@
+{
+  "payload": {
+    "export": "cart-delivery-options-discounts-generate-run",
+    "target": "cart.delivery-options.discounts.generate.run",
+    "input": {
+      "discount": {
+        "discountClasses": ["SHIPPING"],
+        "metafield": { "jsonValue": { "amount": "7.50" } }
+      },
+      "cart": {
+        "lines": [
+          {
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "product": { "hasAnyTag": true }
+            }
+          },
+          {
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "product": { "hasAnyTag": false }
+            }
+          }
+        ],
+        "deliveryGroups": [{ "id": "gid://shopify/CartDeliveryGroup/1" }]
+      }
+    },
+    "output": {
+      "operations": []
+    }
+  }
+}

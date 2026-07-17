@@ -1,0 +1,45 @@
+# [DEMO 1] The Function's INPUT QUERY (spec addendum §4b).
+#
+# Half of what makes a Function a Function: Shopify runs this query for us and
+# hands the result to the run export as plain JSON. The Function makes no
+# network calls — it cannot. Ask for exactly what the logic needs; every field
+# costs against the instruction budget.
+#
+# discount.metafield holds the SETTINGS a merchant saved on the discount page
+# (written by the media-mail-discount-settings admin UI extension). Config in a
+# metafield, not in code: changing the discount amount is a merchant edit in
+# admin — no redeploy, no new app version. That contrast is the talking point.
+#
+# The `media-mail` tag is hard-coded here on purpose. Field arguments can be
+# made configurable via input query variables ([extensions.input.variables]),
+# but an unset variables metafield passes null and FAILS execution outright —
+# and because Shopify resolves those variables before the Function runs, the
+# local fixture tests can't cover that path. Not worth the stage risk for a
+# tag the deck treats as fixed.
+#
+# merchandise is a union (CustomProduct | ProductVariant); only ProductVariant
+# carries a product, so only it can carry tags. __typename is required on a
+# union parent.
+query DeliveryInput {
+  cart {
+    lines {
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            hasAnyTag(tags: ["media-mail"])
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      id
+    }
+  }
+  discount {
+    discountClasses
+    metafield(namespace: "$app", key: "function-configuration") {
+      jsonValue
+    }
+  }
+}

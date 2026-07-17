@@ -1,10 +1,10 @@
 # [DEMO 1] media-mail-discount — shipping discount Function (spec addendum §4b).
 #
 # [SLIDE D2] A Function pins its OWN api_version, independent of the app's
-# webhooks (shopify.app.toml) and of the checkout extension (which sits at
-# 2026-04). Pinned to 2026-07 to match the app's webhook/Admin API surface —
-# this is the quarterly-bump talking point: nothing moves until you move it,
-# and each surface moves separately.
+# webhooks (shopify.app.toml) and of checkout-banner (which sits at 2026-04).
+# Pinned to 2026-07 to match the app's webhook/Admin API surface — the
+# quarterly-bump talking point: nothing moves until you move it, and each
+# surface moves separately.
 #
 # Changing api_version means re-running `shopify app function schema` +
 # `npm run typegen` — schema.graphql and generated/ are version-locked to it.
@@ -17,17 +17,15 @@ type = "function"
 uid = "5808f6a6-a119-ffe7-1795-f81f2a4ab447cfa590ea"
 description = "t:description"
 
-  # purchase.shipping-discount.run — Shopify calls `run` (exported from src/run.js)
-  # while pricing the cart, with the result of input_query as its only argument.
+  # The Discount API exposes two targets (cart lines and delivery options). We
+  # only discount shipping, so only the delivery target is declared — an
+  # undeclared target simply never runs. The cart-lines half of the template
+  # was deleted rather than left stubbed out.
   [[extensions.targeting]]
-  target = "purchase.shipping-discount.run"
-  input_query = "src/run.graphql"
-  export = "run"
+  target = "cart.delivery-options.discounts.generate.run"
+  input_query = "src/cart_delivery_options_discounts_generate_run.graphql"
+  export = "cart-delivery-options-discounts-generate-run"
 
   [extensions.build]
   command = ""
   path = "dist/function.wasm"
-
-  [extensions.ui.paths]
-  create = "/"
-  details = "/"
