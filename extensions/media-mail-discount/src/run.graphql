@@ -1,0 +1,26 @@
+# [DEMO 1] The Function's INPUT QUERY (spec addendum §4b).
+#
+# This is half of what makes a Function a Function: Shopify runs this query for
+# us and hands the result to run() as plain JSON. The Function itself makes no
+# network calls — it cannot. Ask for exactly what run() needs and nothing more;
+# every field costs against the instruction budget.
+#
+# merchandise is a union (CustomProduct | ProductVariant). Only ProductVariant
+# carries a product, so only it can carry tags — a custom/untagged line makes
+# hasAnyTag undefined in run(), which correctly fails the "every line" test.
+query RunInput {
+  cart {
+    lines {
+      merchandise {
+        ... on ProductVariant {
+          product {
+            hasAnyTag(tags: ["media-mail"])
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      id
+    }
+  }
+}

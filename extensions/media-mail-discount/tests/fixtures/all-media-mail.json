@@ -1,0 +1,50 @@
+{
+  "payload": {
+    "export": "run",
+    "target": "purchase.shipping-discount.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "merchandise": {
+              "product": {
+                "hasAnyTag": true
+              }
+            }
+          },
+          {
+            "merchandise": {
+              "product": {
+                "hasAnyTag": true
+              }
+            }
+          }
+        ],
+        "deliveryGroups": [
+          {
+            "id": "gid://shopify/CartDeliveryGroup/0"
+          }
+        ]
+      }
+    },
+    "output": {
+      "discounts": [
+        {
+          "message": "media-mail shipping",
+          "targets": [
+            {
+              "deliveryGroup": {
+                "id": "gid://shopify/CartDeliveryGroup/0"
+              }
+            }
+          ],
+          "value": {
+            "fixedAmount": {
+              "amount": "5.00"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
