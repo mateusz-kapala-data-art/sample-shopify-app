@@ -19,7 +19,18 @@ module.exports = {
     commonjs: true,
     es6: true,
   },
-  ignorePatterns: ["!**/.server", "!**/.client"],
+  // The lint script passes `--ignore-path .gitignore`, which overrides .eslintignore
+  // AND ignores each extension's own .gitignore — so extension build/codegen output
+  // must be excluded here or it gets linted. All three are CLI-managed: the Shopify
+  // CLI rewrites them on `app function typegen` / `app generate extension`, so any
+  // hand-fix would be silently clobbered on the next run.
+  ignorePatterns: [
+    "!**/.server",
+    "!**/.client",
+    "extensions/*/generated/**", // graphql-codegen output (shopify app function typegen)
+    "extensions/*/dist/**", // compiled function.wasm bundle
+    "extensions/*/shopify.d.ts", // CLI-written ambient types for extension targets
+  ],
 
   // Base config
   extends: ["eslint:recommended"],
@@ -84,6 +95,10 @@ module.exports = {
         ".graphqlrc.{js,ts}",
         "shopify.server.{js,ts}",
         "**/*.server.{js,ts}",
+        // Function tests run under vitest in Node (they build the .wasm and drive
+        // it through function-runner), so they use __dirname and Node built-ins.
+        "extensions/*/tests/**/*.{js,ts}",
+        "extensions/*/*.config.{js,ts}",
       ],
       env: {
         node: true,
