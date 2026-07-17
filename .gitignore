@@ -22,6 +22,9 @@ database.sqlite
 
 
 /extensions/*/dist
+# Written by `shopify app build` from each extension's [[extensions.targeting]];
+# derived output, not source.
+/extensions/*/manifest.json
 
 # Ignore shopify files created during app dev
 .shopify/*
