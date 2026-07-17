@@ -49,12 +49,35 @@ model Store {
   themeName          String?
   themeVersion       String?
   grantedScopes      String?
-  shippingModule     Boolean   @default(false)
+  shippingModule     Boolean   @default(false) // [DEMO 5] write_shipping granted + module enabled
   dataConnected      Boolean   @default(false)
   fansifterConnected Boolean   @default(false)
   installedAt        DateTime  @default(now())
   uninstalledAt      DateTime?
   lastSyncedAt       DateTime?
+}
+
+// [DEMO 5] ShippingMethod — one row per merchant-defined checkout shipping method,
+// mirrored 1:1 to a Shopify DeliveryMethodDefinition via deliveryProfileUpdate.
+// shopifyMethodDefinitionId is the join key back to Shopify so delete retracts
+// the same definition it created.
+model ShippingMethod {
+  id                        String    @id @default(cuid())
+  shop                      String
+  name                      String
+  priceAmount               Decimal   @db.Decimal(10, 2)
+  currencyCode              String
+  conditionOperator         String?   // "AT_LEAST" | "AT_MOST" | null
+  conditionAmount           Decimal?  @db.Decimal(10, 2)
+  // Comma-joined DeliveryMethodDefinition ids — the mutation creates one DISTINCT
+  // definition per zone, so a single merchant-facing "method" maps to N Shopify ids
+  // (deliveryProfileUpdate's methodDefinitionsToDelete takes a flat id list, so no
+  // zone/locationGroup bookkeeping is needed to retract them). Null until confirmed.
+  shopifyMethodDefinitions  String?
+  shopifyProfileId          String?
+  createdAt                 DateTime  @default(now())
+
+  @@index([shop])
 }
 
 // WebhookEvent — durable queue table (DATA-02); dedupe key is Shopify's own
