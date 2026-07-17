@@ -64,7 +64,11 @@ node -e 'const{PrismaClient}=require("@prisma/client");const db=new PrismaClient
 
 - afterAuth self-registration (install → Store row) — needs OAuth
 - Registry page table / re-sync button / degraded banner — needs App Bridge + embed
-- `write_shipping` runtime scope grant modal — needs App Bridge
+- `write_shipping` runtime scope grant modal — needs App Bridge (the
+  `addShippingMethod`/`deleteShippingMethod` GraphQL calls in
+  `app/lib/shippingModule.server.ts` can themselves be smoke-tested headlessly with a
+  client-credentials token, same pattern as `resyncStore` — only the App Bridge grant
+  modal itself needs the embedded UI)
 - SEC-04 degraded mode — needs a real `invalid_client` from Shopify's token endpoint
 - Storefront badge deploy/redeploy — needs `shopify app deploy` + theme editor
 

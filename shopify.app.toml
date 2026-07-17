@@ -33,14 +33,16 @@ api_version = "2026-07"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 # [SLIDE D1] access scopes (spec §3) — read-mostly: read_products + read_themes required.
-# read_locales is the single optional scope, requested at runtime on the Permissions
-# route (Demo 6) via the App Bridge scopes API; app/scopes_update fires on the grant and
-# the worker reconciles Store.grantedScopes. (read_content stays in a branch as the Demo 6
-# re-approval scope.) Phase 5's write_* / metaobject scopes were removed with the showcase.
+# read_locales (Demo 6) and write_shipping (Demo 5) are optional scopes, requested at
+# runtime via the App Bridge scopes API on their respective routes; app/scopes_update
+# fires on the grant and the worker reconciles Store.grantedScopes. (read_content stays
+# in a branch as the Demo 6 re-approval scope.) write_shipping backs the "Enable shipping
+# module" button on the registry per-store page — adding checkout shipping methods via
+# deliveryProfileUpdate.
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,read_themes"
-optional_scopes = [ "read_locales" ]
+optional_scopes = [ "read_locales", "write_shipping" ]
 
 [auth]
 redirect_urls = [ "https://sample-shopify-app-fawn.vercel.app/api/auth" ]

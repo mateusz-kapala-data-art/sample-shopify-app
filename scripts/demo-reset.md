@@ -62,7 +62,9 @@ Two options — pick one:
       mint auto-clears it).
 - [ ] **DEMO 5** (registry UI / re-sync / runtime scope): confirm **Run re-sync
       now** works and **Enable shipping module** opens the `write_shipping` grant
-      modal.
+      modal. After granting, add a shipping method (name + price + optional
+      subtotal condition) and confirm it appears in Shopify admin's Settings →
+      Shipping and delivery on the default profile's zones.
 - [ ] **DEMO 6** (storefront badge): the `platform-badge` block is added to the dev
       store theme (Theme editor → add app block) so the deploy diff is visible.
 
@@ -76,10 +78,12 @@ Every demo stop carries a `// [DEMO n]` / `// [SLIDE Xn]` comment:
 | 2 | `app/routes/webhooks.tsx`, `app/jobs/processWebhooks.ts` | `[DEMO 2]` verify → dedupe → apply |
 | 3 | `app/lib/webhookSecrets.server.ts` | `[DEMO 3]` multi-secret rotation |
 | 4 | `app/lib/tokenService.server.ts` | `[DEMO 4]` token cache + degraded mode |
-| 5 | `app/routes/app.registry.tsx` | `[DEMO 5]` registry UI + runtime scope |
+| 5 | `app/routes/app.registry.$shop.tsx`, `app/lib/shippingModule.server.ts` | `[DEMO 5]` registry UI + runtime scope + shipping method CRUD |
 | 6 | `extensions/platform-badge/blocks/platform-badge.liquid` | `[DEMO 6]` storefront badge |
 
 ## Screenshot fallbacks
 
 - [ ] Have a screenshot of each payoff state (registry row, degraded banner, grant
-      modal, storefront badge) in case live delivery fails.
+      modal, storefront badge, add-shipping-method form + result, and the new rate
+      showing in Shopify admin's Settings → Shipping and delivery) in case live
+      delivery fails.
