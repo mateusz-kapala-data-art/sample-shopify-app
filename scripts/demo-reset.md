@@ -39,7 +39,7 @@ Two options — pick one:
 ## 3. Reset the storefront badge to baseline
 
 - [ ] In `extensions/platform-badge/blocks/platform-badge.liquid`, set
-      `BADGE_TEXT` back to `'Connected to Sony Platform · v1'`.
+      `badge_text` back to `'Connected to Sony Platform · v1'`.
 - [ ] `shopify app deploy` and release the version so the storefront shows the
       baseline text. (The live demo is bumping `v1 → v2` and redeploying.)
 

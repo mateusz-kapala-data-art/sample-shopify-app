@@ -1,6 +1,6 @@
 # [DEMO 6] platform-badge theme app extension — the storefront proof of the
 # deploy-and-redeploy story (EXT-01). `shopify app deploy` releases a new version;
-# bumping BADGE_TEXT in blocks/platform-badge.liquid changes the visible storefront
+# bumping badge_text in blocks/platform-badge.liquid changes the visible storefront
 # text on the next release.
 name = "platform-badge"
 type = "theme"

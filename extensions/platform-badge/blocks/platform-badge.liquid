@@ -1,16 +1,16 @@
 {%- comment -%}
   [DEMO 6] Storefront badge — "Connected to Sony Platform" (EXT-01).
-  BADGE_TEXT below is the version constant: change it (e.g. v1 -> v2), run
+  badge_text below is the version constant: change it (e.g. v1 -> v2), run
   `shopify app deploy`, release the version, and the storefront text updates.
   This is the visible on-stage diff for the deploy-and-redeploy demo.
   (Styles live in assets/platform-badge.css — theme app extension blocks may not
   contain inline {% stylesheet %} tags; the schema "stylesheet" key loads them.)
 {%- endcomment -%}
-{%- assign BADGE_TEXT = 'Connected to Sony Platform · v1' -%}
+{%- assign badge_text = 'Connected to Sony Platform · v1' -%}
 
 <div class="platform-badge" {{ block.shopify_attributes }}>
   <span class="platform-badge__dot" aria-hidden="true"></span>
-  <span class="platform-badge__text">{{ BADGE_TEXT }}</span>
+  <span class="platform-badge__text">{{ badge_text }}</span>
 </div>
 
 {% schema %}
