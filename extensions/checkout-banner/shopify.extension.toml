@@ -1,0 +1,24 @@
+# [DEMO 1] checkout-banner — checkout UI extension (spec addendum §4a).
+#
+# api_version below is this extension's OWN pin, independent of the app's
+# webhook/Function pin of 2026-07 (see shopify.app.toml and the Function's toml).
+# That independence is the point on slide D2: every surface pins its own version
+# and joins the quarterly bump on its own schedule. It tracks the
+# @shopify/ui-extensions 2026.4.x dependency in package.json — bump both together.
+api_version = "2026-04"
+
+[[extensions]]
+name = "checkout-banner"
+handle = "checkout-banner"
+type = "ui_extension"
+uid = "68651933-d67b-5cc4-f075-88466d105dd0eb7b7e99"
+
+# purchase.checkout.block.render = a merchant-placed block in checkout, positioned
+# via checkout customization in the admin (not hard-coded by us).
+[[extensions.targeting]]
+module = "./src/Checkout.jsx"
+target = "purchase.checkout.block.render"
+
+# No [extensions.capabilities], no [[extensions.metafields]], no
+# [extensions.settings] on purpose: a static banner needs no storefront API
+# access, no network access, and no merchant configuration. Defaults only.
