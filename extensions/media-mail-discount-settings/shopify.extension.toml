@@ -1,0 +1,32 @@
+# [DEMO 1] media-mail-discount-settings — admin UI extension (spec addendum §4b).
+#
+# The merchant-facing settings for the media-mail-discount Function. Shopify
+# renders this INSIDE its own discount details page and hosts the code — our
+# server never sees it. Shopify supplies the discount's name, dates, and
+# eligibility fields; we supply only the one input our Function reads.
+#
+# [SLIDE D2] Its own api_version pin again — 2026-01 here, tracking the
+# @shopify/ui-extensions ~2026.01.0 dep in package.json. Four surfaces, four
+# independent version pins: webhooks 2026-07, Function 2026-07, checkout
+# 2026-04, this 2026-01. Nothing bumps until you bump it.
+api_version = "2026-01"
+
+[[extensions]]
+# Merchant-facing name/description live in locales/en.default.json
+name = "t:name"
+description = "t:description"
+handle = "media-mail-discount-settings"
+uid = "47ea3c2d-0e06-61d2-bfd9-a0e28f16f4cb2e018302"
+type = "ui_extension"
+
+# Only 1 target can be specified for an admin block extension.
+[[extensions.targeting]]
+module = "./src/DiscountFunctionSettings.jsx"
+target = "admin.discount-details.function-settings.render"
+
+# Declares the metafield this extension reads and writes. Same namespace/key the
+# Function's input query asks for — this line and the Function's
+# metafield(namespace: "$app", key: "function-configuration") are the contract.
+[[extensions.metafields]]
+namespace = "$app"
+key = "function-configuration"

@@ -1,0 +1,6 @@
+{
+  "name": "Media Mail shipping discount",
+  "description": "Set the flat shipping discount applied when every item in the cart is tagged media-mail.",
+  "explanation": "Applied when every item in the cart is tagged media-mail.",
+  "amountLabel": "Shipping discount"
+}
