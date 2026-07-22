@@ -1,0 +1,11 @@
+name = "release-pixel"
+type = "web_pixel_extension"
+uid = "a6fbcb2a-6c80-10e3-f0a4-2ab7f92ebee45dde4691"
+
+runtime_context = "strict"
+
+# No settings needed for this demo — the pixel just logs two events to the
+# browser console. Empty object schema so `webPixelCreate(settings: "{}")`
+# validates on activation (see README).
+[settings]
+type = "object"
