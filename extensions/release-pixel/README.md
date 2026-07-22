@@ -12,9 +12,12 @@ checkout** (`checkout_completed`), in a sandbox, with no theme edits.
 ## Activation (once per dev store, in prep)
 
 Pixels must be activated per store. `shopify app deploy` publishes the
-extension; then create the web pixel record once via the Admin GraphQL API
-(GraphiQL or the app's API client). Requires the `write_pixels` scope
-(declared in `shopify.app.toml`):
+extension; then activate the pixel on the store. Simplest: open the app's
+**Live extensions** page (`/app/flow-demo`) and click **Activate pixel on this
+store** — it runs `webPixelCreate` for you. Requires the `write_pixels` scope
+(declared in `shopify.app.toml`).
+
+Equivalent Admin GraphQL, if you prefer GraphiQL:
 
 ```graphql
 mutation ActivateReleasePixel {
@@ -24,8 +27,7 @@ mutation ActivateReleasePixel {
 }
 ```
 
-Settings are `{}` — this pixel needs no configuration. You can also toggle the
-pixel from the app's pixel settings page after deploy.
+Settings are `{}` — this pixel needs no configuration.
 
 ## Demo check
 
