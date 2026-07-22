@@ -33,6 +33,10 @@ api_version = "2026-07"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 # [SLIDE D1] access scopes (spec §3) — read-mostly: read_products + read_themes required.
+# write_pixels + read_customer_events (Demo 1b) are required so the release-pixel web
+# pixel can be activated (webPixelCreate) and subscribe to customer events. Adding these
+# required scopes re-prompts already-installed stores on next load — that's the per-store
+# re-approval story (slide I2). (flowTriggerReceive for the Flow trigger needs no scope.)
 # read_locales (Demo 6) and write_shipping (Demo 5) are optional scopes, requested at
 # runtime via the App Bridge scopes API on their respective routes; app/scopes_update
 # fires on the grant and the worker reconciles Store.grantedScopes. (read_content stays
@@ -41,7 +45,7 @@ api_version = "2026-07"
 # deliveryProfileUpdate.
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,read_themes"
+scopes = "read_products,read_themes,write_pixels,read_customer_events"
 optional_scopes = [ "read_locales", "write_shipping" ]
 
 [auth]
