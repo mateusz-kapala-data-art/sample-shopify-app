@@ -6,8 +6,10 @@ register(({ analytics }) => {
   analytics.subscribe("product_viewed", (event) => {
     const variant = event.data.productVariant;
     console.log("[release-pixel] product_viewed", {
-      title: variant.title,
-      price: variant.price.amount,
+      // product.title is the release name; variant.title is "Default Title" for
+      // single-variant products — show the product name on stage, fall back to variant.
+      title: variant.product?.title ?? variant.title,
+      price: variant.price?.amount,
     });
   });
 
