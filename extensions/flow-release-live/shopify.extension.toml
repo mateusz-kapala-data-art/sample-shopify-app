@@ -5,16 +5,18 @@ type = "flow_trigger"
 uid = "45ed91a0-b0d8-d5f2-cc56-004cae40077bc0c8bfa2"
 description = "Fires when a release's street date passes."
 
+# Flow custom-field keys must be alphabetic + spaces only (CLI-enforced), and the
+# flowTriggerReceive payload must use these exact keys verbatim (see app.flow-demo.tsx).
 [settings]
 
   [[settings.fields]]
   type = "single_line_text_field"
-  key = "release_title"
+  key = "Release title"
 
   [[settings.fields]]
   type = "single_line_text_field"
-  key = "catalog_number"
+  key = "Catalog number"
 
   [[settings.fields]]
   type = "single_line_text_field"
-  key = "street_date"
+  key = "Street date"

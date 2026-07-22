@@ -20,22 +20,33 @@ const FLOW_TRIGGER_RECEIVE = `#graphql
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
-  const res = await admin.graphql(FLOW_TRIGGER_RECEIVE, {
-    variables: {
-      handle: "release-went-live",
-      payload: {
-        release_title: "Midnight Static — LP",
-        catalog_number: "SME-4417",
-        street_date: "2026-07-24",
+  try {
+    const res = await admin.graphql(FLOW_TRIGGER_RECEIVE, {
+      variables: {
+        handle: "release-went-live",
+        // Keys must match the trigger's field keys verbatim (alphabetic + spaces).
+        payload: {
+          "Release title": "Midnight Static — LP",
+          "Catalog number": "SME-4417",
+          "Street date": "2026-07-24",
+        },
       },
-    },
-  });
-  const body: any = await res.json();
-  const userErrors = body?.data?.flowTriggerReceive?.userErrors ?? [];
-  if (userErrors.length > 0) {
-    return { ok: false, error: userErrors.map((e: any) => e.message).join("; ") };
+    });
+    const body: any = await res.json();
+    // Top-level GraphQL errors (throttling, bad field) never appear in userErrors —
+    // without this check an empty userErrors array would read as a false success.
+    if (body?.errors?.length) {
+      return { ok: false, error: body.errors.map((e: any) => e.message).join("; ") };
+    }
+    const userErrors = body?.data?.flowTriggerReceive?.userErrors ?? [];
+    if (userErrors.length > 0) {
+      return { ok: false, error: userErrors.map((e: any) => e.message).join("; ") };
+    }
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof Response) throw err; // React Router control flow (re-auth)
+    return { ok: false, error: "Firing the trigger failed (network or server error)." };
   }
-  return { ok: true };
 };
 
 export default function FlowDemo() {
