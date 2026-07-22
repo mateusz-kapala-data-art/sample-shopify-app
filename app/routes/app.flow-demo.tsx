@@ -73,16 +73,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 // One button + its own fetcher, toast on its own result. Matches the per-control
-// fetcher convention in app.registry.$shop.tsx.
+// fetcher convention in app.registry.$shop.tsx. On success the button reflects the
+// new state (label swap + success badge); oneShot also disables it (re-activating a
+// pixel errors with "already taken").
 function DemoAction({
   intent,
   label,
+  doneLabel,
+  doneBadge,
   okToast,
+  oneShot = false,
   children,
 }: {
   intent: string;
   label: string;
+  doneLabel: string;
+  doneBadge: string;
   okToast: string;
+  oneShot?: boolean;
   children: React.ReactNode;
 }) {
   const shopify = useAppBridge();
@@ -90,6 +98,7 @@ function DemoAction({
   const busy = fetcher.state !== "idle";
   const result = fetcher.data as { ok?: boolean; intent?: string; error?: string } | undefined;
   const mine = result?.intent === intent;
+  const done = mine && result?.ok === true;
 
   useEffect(() => {
     if (!mine) return;
@@ -100,13 +109,17 @@ function DemoAction({
   return (
     <s-stack direction="block" gap="base">
       <s-text>{children}</s-text>
-      <s-button
-        variant="primary"
-        onClick={() => fetcher.submit({ intent }, { method: "post" })}
-        {...(busy ? { loading: true } : {})}
-      >
-        {label}
-      </s-button>
+      <s-stack direction="inline" gap="base" alignItems="center">
+        <s-button
+          variant={done ? "secondary" : "primary"}
+          onClick={() => fetcher.submit({ intent }, { method: "post" })}
+          {...(busy ? { loading: true } : {})}
+          {...(done && oneShot ? { disabled: true } : {})}
+        >
+          {done ? doneLabel : label}
+        </s-button>
+        {done && <s-badge tone="success">{doneBadge}</s-badge>}
+      </s-stack>
       {mine && result?.error && <s-text tone="critical">{result.error}</s-text>}
     </s-stack>
   );
@@ -121,6 +134,9 @@ export default function LiveExtensions() {
         <DemoAction
           intent="activate-pixel"
           label="Activate pixel on this store"
+          doneLabel="Pixel activated"
+          doneBadge="Active"
+          oneShot
           okToast="release-pixel activated — open a product, watch the storefront console"
         >
           Activates the release-pixel web pixel on this store (webPixelCreate). Once active,
@@ -132,6 +148,8 @@ export default function LiveExtensions() {
         <DemoAction
           intent="fire-trigger"
           label="Fire ‘Release went live’"
+          doneLabel="Fire again"
+          doneBadge="Fired"
           okToast="Trigger fired — check Flow run log"
         >
           POSTs the “Release went live” Flow trigger for Midnight Static — LP (SME-4417) via
