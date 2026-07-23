@@ -20,6 +20,7 @@ export default function App() {
       {/* [ADDENDUM A2] Nav = presentation order, one item per on-stage demo. Nothing else. */}
       <s-app-nav>
         <s-link href="/app">Registry</s-link>
+        <s-link href="/app/flow-demo">Live extensions</s-link>
         <s-link href="/app/versions">Versions</s-link>
         <s-link href="/app/webhooks">Webhooks</s-link>
         <s-link href="/app/permissions">Permissions</s-link>
